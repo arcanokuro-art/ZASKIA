@@ -82,11 +82,14 @@ jobs:
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+\+[1-9][0-9]*$ ]]
           app_version="${version%+*}"
           apk="ZASKIA-v$app_version.apk"
-          cp build/app/outputs/flutter-apk/app-release.apk "$apk"
           sdk_tools="$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -n 1)"
+          "$sdk_tools" sign --ks android/app/zaskia-release.jks --ks-type PKCS12 \
+            --ks-key-alias "$KEY_ALIAS" --ks-pass env:KEYSTORE_PASSWORD --key-pass env:KEY_PASSWORD \
+            --out "$apk" build/app/outputs/flutter-apk/app-release.apk
           expected="$(keytool -exportcert -keystore android/app/zaskia-release.jks -alias "$KEY_ALIAS" -storepass:env KEYSTORE_PASSWORD | sha256sum | cut -d ' ' -f1)"
-          actual="$("$sdk_tools" verify --print-certs "$apk" | awk '/Signer #1 certificate SHA-256 digest:/ {print $NF}')"
-          [[ "${actual,,}" == "$expected" ]] || { echo "::error::APK signing certificate mismatch"; exit 1; }
+          certs="$("$sdk_tools" verify --print-certs "$apk")"
+          actual="$(awk -F': ' '/certificate SHA-256 digest:/ {print $2}' <<< "$certs")"
+          [[ "${actual,,}" == "$expected" ]] || { echo "::error::APK signing certificate mismatch (expected $expected, got $actual)"; exit 1; }
           badging="$("${sdk_tools%/*}/aapt" dump badging "$apk")"
           package_info="$(awk '/^package:/ { print; exit }' <<< "$badging")"
           expected_code="${version##*+}"
@@ -98,6 +101,7 @@ jobs:
         env:
           KEYSTORE_PASSWORD: ${{ secrets.ZASKIA_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ZASKIA_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ZASKIA_KEY_PASSWORD }}
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
