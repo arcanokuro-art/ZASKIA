@@ -4,7 +4,9 @@ set -euo pipefail
 source_dir="$1"
 destination="$2"
 ndk="${ANDROID_HOME}/ndk/26.3.11579264"
-sdkmanager --install 'ndk;26.3.11579264' 'cmake;3.22.1'
+sdk_manager="$(find "$ANDROID_HOME/cmdline-tools" -path '*/bin/sdkmanager' -type f | sort -V | tail -n 1)"
+test -x "$sdk_manager"
+"$sdk_manager" --install 'ndk;26.3.11579264' 'cmake;3.22.1'
 cmake_bin="${ANDROID_HOME}/cmake/3.22.1/bin"
 build_dir="$(mktemp -d)"
 trap 'rm -rf "$build_dir"' EXIT
