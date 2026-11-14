@@ -1,19 +1,27 @@
 import 'dart:io';
 
-import 'package:llama_flutter_android/llama_flutter_android.dart';
-
-import 'package:flutter/services.dart';
-
-import '../images/flux_engine.dart';
-import '../images/flux_models_screen.dart';
-import '../models/local_model.dart';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-part 'chat_message.dart';
-part 'attachment_tile.dart';
+enum _Mode { chat, create, edit }
+enum _Action { camera, photos, files, create, edit }
+
+class _Attachment {
+  const _Attachment(this.name, this.path, {this.image = false});
+
+  final String name;
+  final String path;
+  final bool image;
+}
+
+class _Message {
+  const _Message(this.text, this.attachments, this.mode);
+
+  final String text;
+  final List<_Attachment> attachments;
+  final _Mode mode;
+}
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -30,19 +38,11 @@ class _ChatScreenState extends State<ChatScreen> {
   final _attachments = <_Attachment>[];
   _Mode _mode = _Mode.chat;
   bool _picking = false;
-  final _localModel = LocalModel();
-  final _flux = FluxEngine();
-  bool _installed = false;
-  bool _generating = false;
-  bool _importing = false;
-
-  String get _modelStatus => _installed ? 'Modelo local instalado' : 'Modelo local sin configurar';
 
   @override
   void initState() {
     super.initState();
     _recoverImages();
-    _checkModel();
   }
 
   @override
@@ -127,10 +127,10 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  bool get _canSend => !_picking && !_generating && !_importing &&
+  bool get _canSend => !_picking &&
       (_composer.text.trim().isNotEmpty || _attachments.isNotEmpty);
 
-  Future<void> _send() async {
+  void _send() {
     if (!_canSend) return;
     final text = _composer.text.trim();
     if (_mode != _Mode.chat && text.isEmpty) {
@@ -141,119 +141,17 @@ class _ChatScreenState extends State<ChatScreen> {
       _notice('Agrega una imagen para editar.');
       return;
     }
-    if (_mode == _Mode.edit && _attachments.where((item) => item.image).length > 2) {
-      _notice('Elige hasta dos imágenes de referencia.');
-      return;
-    }
-    final message = _Message(text, List.of(_attachments), _mode);
-    final imageTask = _mode != _Mode.chat;
-    message.generatingImage = imageTask;
-    final shouldReply = _installed && _mode == _Mode.chat && text.isNotEmpty;
     setState(() {
-      _messages.add(message);
-      _generating = shouldReply || imageTask;
+      _messages.add(_Message(text, List.of(_attachments), _mode));
       _attachments.clear();
       _mode = _Mode.chat;
       _composer.clear();
     });
     _focus.unfocus();
-    if (imageTask) {
-      await _renderImage(message);
-      return;
-    }
-    if (!shouldReply) return;
-    final history = <ChatMessage>[];
-    for (final turn in _messages.where((item) => item.answer.isNotEmpty).toList().reversed.take(2).toList().reversed) {
-      history.add(ChatMessage(role: 'user', content: _window(turn.text, 500)));
-      history.add(ChatMessage(role: 'assistant', content: _window(turn.answer, 500)));
-    }
-    history.add(ChatMessage(role: 'user', content: text));
-    try {
-      final output = StringBuffer();
-      await for (final token in _localModel.reply(history)) {
-        if (!mounted) break;
-        output.write(token);
-        final raw = output.toString();
-        final closing = raw.indexOf('</think>');
-        final visible = closing >= 0
-          ? raw.substring(closing + '</think>'.length)
-          : raw.trimLeft().startsWith('<think>') ? '' : raw;
-        setState(() => message.answer = visible.trimLeft());
-      }
-      if (mounted && message.answer.trim().isEmpty) {
-        _notice('El modelo no devolvió texto. Prueba un mensaje más corto.');
-      }
-    } on Exception {
-      if (mounted) _notice('No se pudo generar. Revisa el modelo GGUF y la memoria disponible.');
-    } on StateError {
-      if (mounted) _notice('El motor local no está disponible en este momento.');
-    } finally {
-      if (mounted) setState(() => _generating = false);
-    }
-  }
-
-  Future<void> _renderImage(_Message message) async {
-    try {
-      if ((await _flux.installed()).length != FluxWeight.values.length) {
-        if (mounted) setState(() {
-          message.imageError = 'Instala los tres pesos desde Modelos de imagen.';
-        });
-        return;
-      }
-      await _localModel.unload();
-      final references = [
-        if (message.mode == _Mode.edit)
-          for (final item in message.attachments.where((item) => item.image).take(2))
-            item.path,
-      ];
-      final result = await _flux.generate(message.text, references);
-      if (mounted) setState(() => message.generatedImage = result);
-    } on PlatformException catch (error) {
-      if (mounted) setState(() => message.imageError = error.message ?? 'Error al generar.');
-    } on Exception {
-      if (mounted) setState(() => message.imageError = 'No se pudo preparar la imagen.');
-    } finally {
-      if (mounted) setState(() {
-        message.generatingImage = false;
-        _generating = false;
-      });
-    }
-  }
-
-  String _window(String text, int limit) =>
-      text.length <= limit ? text : text.substring(0, limit);
-
-  Future<void> _checkModel() async {
-    try {
-      final installed = await _localModel.isInstalled();
-      if (mounted) setState(() => _installed = installed);
-    } on Exception {
-      if (mounted) _notice('No se pudo comprobar el almacenamiento de modelos.');
-    }
-  }
-
-  Future<void> _importModel() async {
-    if (_generating || _importing || !_localModel.supported) return;
-    setState(() => _importing = true);
-    try {
-      final result = await FilePicker.platform.pickFiles();
-      final path = result?.files.single.path;
-      if (path == null || !mounted) return;
-      await _localModel.install(path);
-      if (!mounted) return;
-      setState(() => _installed = true);
-      _notice('Modelo importado. Ya puedes volver al chat.');
-    } on FormatException {
-      if (mounted) _notice('Elige un archivo de modelo GGUF válido.');
-    } on Exception {
-      if (mounted) _notice('No se pudo importar el modelo. Revisa el espacio libre.');
-    } finally {
-      if (mounted) setState(() => _importing = false);
-    }
   }
 
   Future<void> _newChat() async {
-    if (_picking || _generating || _importing) return;
+    if (_picking) return;
     if (_messages.isNotEmpty || _attachments.isNotEmpty ||
         _composer.text.trim().isNotEmpty) {
       final confirmed = await showDialog<bool>(
@@ -280,37 +178,20 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _openInfo(String title) {
-    if (title == 'Modelos de imagen') {
-      if (_generating) {
-        _notice('Espera a que termine la generación.');
-        return;
-      }
-      Navigator.push<void>(context, MaterialPageRoute(
-        builder: (context) => FluxModelsScreen(engine: _flux),
-      ));
-      return;
-    }
     Navigator.push<void>(context, MaterialPageRoute(
       builder: (context) => Scaffold(
         appBar: AppBar(title: Text(title)),
         body: ListView(children: [
           if (title == 'Modelos locales')
-            StatefulBuilder(builder: (context, update) => ListTile(
-              leading: const Icon(Icons.memory_outlined),
-              title: Text(_importing ? 'Importando modelo…' : _modelStatus),
-              subtitle: const Text('Importar Qwen3 en GGUF. Para 4 GB, prueba Qwen3 1.7B Q4_K_M.'),
-              trailing: const Icon(Icons.file_open_outlined),
-              onTap: _importing || _generating ? null : () async {
-                final operation = _importModel();
-                update(() {});
-                await operation;
-                if (context.mounted) update(() {});
-              },
-            ))
+            const ListTile(
+              leading: Icon(Icons.memory_outlined),
+              title: Text('Modelo local sin configurar'),
+              subtitle: Text('La gestión de modelos se habilitará al integrar los motores de IA.'),
+            )
           else
             const ListTile(
               leading: Icon(Icons.system_update_alt),
-              title: Text('ZASKIA 0.4.1'),
+              title: Text('ZASKIA 0.2.1'),
               subtitle: Text('Actualizaciones mediante APK firmada de GitHub Releases.'),
             ),
         ]),
@@ -338,7 +219,6 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
           for (final entry in {
             'Modelos locales': Icons.memory_outlined,
-            'Modelos de imagen': Icons.image_outlined,
             'Ajustes': Icons.settings_outlined,
           }.entries)
             ListTile(
@@ -449,21 +329,8 @@ class _ChatScreenState extends State<ChatScreen> {
         const SizedBox(height: 12),
         Align(
           alignment: Alignment.centerLeft,
-          child: message.generatedImage != null
-            ? ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Image.file(message.generatedImage!, width: 512, fit: BoxFit.contain),
-              )
-            : message.answer.isNotEmpty
-            ? SelectableText(message.answer)
-            : Text(
-                message.mode != _Mode.chat
-                    ? message.imageError ?? (message.generatingImage ? 'Generando imagen con FLUX…' : 'Sin imagen')
-                : !_installed ? _modelStatus
-                : _generating && identical(message, _messages.last) ? 'Generando respuesta…'
-                : message.text.isEmpty ? 'Modelo de texto local' : 'Sin respuesta',
-                style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
-              ),
+          child: Text('Modelo local sin configurar',
+            style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13)),
         ),
       ]),
     );
@@ -572,7 +439,7 @@ class _ChatScreenState extends State<ChatScreen> {
         if (_messages.isEmpty)
           Padding(
             padding: const EdgeInsets.only(left: 8, top: 8),
-            child: Text(_modelStatus,
+            child: Text('Modelo local sin configurar',
               style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12)),
           ),
       ]),
@@ -595,3 +462,47 @@ class _Mark extends StatelessWidget {
   ));
 }
 
+class _AttachmentTile extends StatelessWidget {
+  const _AttachmentTile({required this.attachment, this.onRemove});
+
+  final _Attachment attachment;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final fallback = Container(
+      width: 112,
+      height: 68,
+      padding: const EdgeInsets.all(8),
+      color: colors.surface,
+      child: Row(children: [
+        const Icon(Icons.insert_drive_file_outlined, size: 18),
+        const SizedBox(width: 5),
+        Expanded(child: Text(attachment.name, maxLines: 2,
+          overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11))),
+      ]),
+    );
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Stack(children: [
+        if (attachment.image)
+          Image.file(File(attachment.path),
+            semanticLabel: attachment.name,
+            width: 112, height: 68, cacheWidth: 336, fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => fallback)
+        else
+          fallback,
+        if (onRemove != null)
+          Positioned(top: 0, right: 0, child: IconButton(
+            tooltip: 'Quitar adjunto',
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.black87, foregroundColor: Colors.white,
+            ),
+            onPressed: onRemove,
+            icon: const Icon(Icons.close, size: 16),
+          )),
+      ]),
+    );
+  }
+}
