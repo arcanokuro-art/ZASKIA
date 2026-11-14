@@ -32,6 +32,8 @@ jobs:
         run: flutter pub get
       - name: Analyze Dart code
         run: flutter analyze
+      - name: Test chat interface
+        run: flutter test
       - name: Configure persistent APK signing
         env:
           KEYSTORE_BASE64: ${{ secrets.ZASKIA_KEYSTORE_BASE64 }}
@@ -89,6 +91,7 @@ jobs:
           expected="$(keytool -exportcert -keystore android/app/zaskia-release.jks -alias "$KEY_ALIAS" -storepass:env KEYSTORE_PASSWORD | sha256sum | cut -d ' ' -f1)"
           certs="$("$sdk_tools" verify --print-certs "$apk")"
           actual="$(awk '/certificate SHA-256 digest:/ {print $NF}' <<< "$certs")"
+          [[ "$expected" == "0f3de3ecee703df49d663ed02765aaaa17e37bb0b2497def35c9fdbefc8849bd" ]] || { echo "::error::Signing key differs from ZASKIA 0.1.0"; exit 1; }
           [[ "${actual,,}" == "$expected" ]] || { echo "::error::APK signing certificate mismatch (expected $expected, got $actual)"; exit 1; }
           badging="$("${sdk_tools%/*}/aapt" dump badging "$apk")"
           package_info="$(awk '/^package:/ { print; exit }' <<< "$badging")"
@@ -115,4 +118,4 @@ jobs:
         run: |
           gh release create "$TAG" "$APK" --target "$GITHUB_SHA" --prerelease \
             --title "ZASKIA $TAG" \
-            --notes "Interfaz inicial de ZASKIA para Android. Los motores de IA se integrarán en versiones posteriores."
+            --notes "Chat rediseñado con menú lateral, cámara y adjuntos. La generación y edición requieren motores de IA que aún no están integrados."
