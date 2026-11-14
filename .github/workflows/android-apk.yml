@@ -86,8 +86,13 @@ jobs:
           sdk_tools="$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -n 1)"
           expected="$(keytool -exportcert -keystore android/app/zaskia-release.jks -alias "$KEY_ALIAS" -storepass:env KEYSTORE_PASSWORD | sha256sum | cut -d ' ' -f1)"
           actual="$("$sdk_tools" verify --print-certs "$apk" | awk '/Signer #1 certificate SHA-256 digest:/ {print $NF}')"
-          test "$actual" = "$expected"
-          "${sdk_tools%/*}/aapt" dump badging "$apk" | grep "^package: name='com.zaskarstartup.zaskia' versionCode='${version##*+}' versionName='$app_version'"
+          [[ "${actual,,}" == "$expected" ]] || { echo "::error::APK signing certificate mismatch"; exit 1; }
+          badging="$("${sdk_tools%/*}/aapt" dump badging "$apk")"
+          package_info="$(awk '/^package:/ { print; exit }' <<< "$badging")"
+          expected_code="${version##*+}"
+          for field in "name='com.zaskarstartup.zaskia'" "versionCode='$expected_code'" "versionName='$app_version'"; do
+            [[ "$package_info" == *"$field"* ]] || { echo "::error::Unexpected APK package metadata: $package_info"; exit 1; }
+          done
           echo "APK=$apk" >> "$GITHUB_ENV"
           echo "TAG=v$app_version" >> "$GITHUB_ENV"
         env:
