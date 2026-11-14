@@ -78,7 +78,7 @@ class FluxEngine {
           '--diffusion-model', '${dir.path}/${FluxWeight.diffusion.filename}',
           '--llm', '${dir.path}/${FluxWeight.encoder.filename}',
           '--vae', '${dir.path}/${FluxWeight.vae.filename}',
-          '--prompt=$prompt', '--output', resultPath,
+          '--prompt', prompt, '--output', resultPath,
           '--width', '512', '--height', '512', '--steps', '4',
           '--cfg-scale', '1.0', '--sampling-method', 'euler',
           '--threads', '4', '--mmap', '--vae-tiling',

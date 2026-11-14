@@ -29,7 +29,9 @@ jobs:
           ref: 5dcfa79801213f23e27b3e83617350ebb8ea93aa
           path: .native/flux
           persist-credentials: false
-          submodules: recursive
+          submodules: false
+      - name: Fetch the pinned ggml submodule
+        run: git -C .native/flux submodule update --init --depth 1 ggml
       - name: Generate Android Flutter scaffold
         run: |
           scaffold="$(mktemp -d)"
@@ -42,6 +44,8 @@ jobs:
           bash platform/android/build-flux.sh .native/flux android/app/src/main/jniLibs/arm64-v8a
           mkdir -p android/app/src/main/assets/licenses
           cp .native/flux/LICENSE android/app/src/main/assets/licenses/stable-diffusion.cpp.txt
+          cp .native/flux/thirdparty/oniguruma/COPYING android/app/src/main/assets/licenses/oniguruma.txt
+          cp .native/flux/thirdparty/utf8proc/LICENSE.md android/app/src/main/assets/licenses/utf8proc.txt
       - name: Configure Android app
         run: |
           sed -i "s/minSdk = flutter.minSdkVersion/minSdk = 26/" android/app/build.gradle.kts

@@ -8,12 +8,12 @@ import '../images/flux_engine.dart';
 import '../images/flux_models_screen.dart';
 import '../models/local_model.dart';
 
-part 'chat_message.dart';
-part 'attachment_tile.dart';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+
+part 'chat_message.dart';
+part 'attachment_tile.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -139,6 +139,10 @@ class _ChatScreenState extends State<ChatScreen> {
     }
     if (_mode == _Mode.edit && !_attachments.any((item) => item.image)) {
       _notice('Agrega una imagen para editar.');
+      return;
+    }
+    if (_mode == _Mode.edit && _attachments.where((item) => item.image).length > 2) {
+      _notice('Elige hasta dos imágenes de referencia.');
       return;
     }
     final message = _Message(text, List.of(_attachments), _mode);
@@ -306,7 +310,7 @@ class _ChatScreenState extends State<ChatScreen> {
           else
             const ListTile(
               leading: Icon(Icons.system_update_alt),
-              title: Text('ZASKIA 0.4.0'),
+              title: Text('ZASKIA 0.4.1'),
               subtitle: Text('Actualizaciones mediante APK firmada de GitHub Releases.'),
             ),
         ]),
