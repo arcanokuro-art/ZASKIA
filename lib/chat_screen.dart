@@ -191,7 +191,7 @@ class _ChatScreenState extends State<ChatScreen> {
           else
             const ListTile(
               leading: Icon(Icons.system_update_alt),
-              title: Text('ZASKIA 0.2.0'),
+              title: Text('ZASKIA 0.2.1'),
               subtitle: Text('Actualizaciones mediante APK firmada de GitHub Releases.'),
             ),
         ]),
@@ -237,9 +237,15 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     drawer: _drawer(),
+    drawerScrimColor: Colors.black54,
     appBar: AppBar(
+      leading: Builder(builder: (context) => IconButton(
+        tooltip: 'Abrir menú',
+        onPressed: () => Scaffold.of(context).openDrawer(),
+        icon: const Icon(Icons.menu_rounded),
+      )),
       title: const Text('ZASKIA', style: TextStyle(
-        fontWeight: FontWeight.w800, letterSpacing: 1.2,
+        fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: 0.6,
       )),
       actions: [
         IconButton(
@@ -262,10 +268,10 @@ class _ChatScreenState extends State<ChatScreen> {
                     child: SingleChildScrollView(
                       padding: EdgeInsets.all(16),
                       child: Column(mainAxisSize: MainAxisSize.min, children: [
-                        _Mark(size: 52),
+                        _Mark(size: 42),
                         SizedBox(height: 12),
                         Text('¿En qué te ayudo?', textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700)),
+                          style: TextStyle(fontSize: 26, fontWeight: FontWeight.w600)),
                       ]),
                     ),
                   )
@@ -302,7 +308,7 @@ class _ChatScreenState extends State<ChatScreen> {
             margin: const EdgeInsets.only(left: 36),
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFF1C2A46),
+              color: colors.secondaryContainer,
               borderRadius: BorderRadius.circular(20),
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -354,11 +360,10 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ]),
         Container(
-          padding: const EdgeInsets.all(4),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
           decoration: BoxDecoration(
-            color: colors.surface,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: colors.outline),
+            color: colors.surfaceContainer,
+            borderRadius: BorderRadius.circular(26),
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             if (_mode != _Mode.chat)
@@ -452,7 +457,7 @@ class _Mark extends StatelessWidget {
     fontSize: size,
     fontWeight: FontWeight.w900,
     fontStyle: FontStyle.italic,
-    color: Theme.of(context).colorScheme.primary,
+    color: Theme.of(context).colorScheme.onSurface,
     height: 1,
   ));
 }
@@ -491,7 +496,9 @@ class _AttachmentTile extends StatelessWidget {
         if (onRemove != null)
           Positioned(top: 0, right: 0, child: IconButton(
             tooltip: 'Quitar adjunto',
-            style: IconButton.styleFrom(backgroundColor: Colors.black87),
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.black87, foregroundColor: Colors.white,
+            ),
             onPressed: onRemove,
             icon: const Icon(Icons.close, size: 16),
           )),
