@@ -22,11 +22,28 @@ jobs:
           flutter-version: '3.32.8'
           channel: stable
           cache: true
+      - name: Fetch stable-diffusion.cpp
+        uses: actions/checkout@v4
+        with:
+          repository: leejet/stable-diffusion.cpp
+          ref: 5dcfa79801213f23e27b3e83617350ebb8ea93aa
+          path: .native/flux
+          persist-credentials: false
+          submodules: recursive
       - name: Generate Android Flutter scaffold
         run: |
           scaffold="$(mktemp -d)"
           flutter create --no-pub --platforms=android --org com.zaskarstartup --project-name zaskia "$scaffold"
           cp -a "$scaffold/android" android
+          cp -a platform/android/kotlin/. android/app/src/main/kotlin/com/zaskarstartup/zaskia/
+          sed -i '/^android {/a\    packaging { jniLibs { useLegacyPackaging = true } }' android/app/build.gradle.kts
+      - name: Compile the ARM64 image runtime
+        run: |
+          bash platform/android/build-flux.sh .native/flux android/app/src/main/jniLibs/arm64-v8a
+          mkdir -p android/app/src/main/assets/licenses
+          cp .native/flux/LICENSE android/app/src/main/assets/licenses/stable-diffusion.cpp.txt
+      - name: Configure Android app
+        run: |
           sed -i "s/minSdk = flutter.minSdkVersion/minSdk = 26/" android/app/build.gradle.kts
           grep -F "minSdk = 26" android/app/build.gradle.kts
           sed -i 's/android:label="zaskia"/android:label="ZASKIA"/' android/app/src/main/AndroidManifest.xml
@@ -101,6 +118,8 @@ jobs:
           for field in "name='com.zaskarstartup.zaskia'" "versionCode='$expected_code'" "versionName='$app_version'"; do
             [[ "$package_info" == *"$field"* ]] || { echo "::error::Unexpected APK package metadata: $package_info"; exit 1; }
           done
+          unzip -Z1 "$apk" > apk-entries.txt
+          grep -Fx 'lib/arm64-v8a/libzaskia_flux.so' apk-entries.txt
           echo "APK=$apk" >> "$GITHUB_ENV"
           echo "TAG=v$app_version" >> "$GITHUB_ENV"
         env:
@@ -120,4 +139,4 @@ jobs:
         run: |
           gh release create "$TAG" "$APK" --target "$GITHUB_SHA" --prerelease \
             --title "ZASKIA $TAG" \
-            --notes "Primer chat local con Qwen GGUF. Android 8 o superior, ARM64. El modelo se importa por separado. El motor de imágenes sigue pendiente."
+            --notes "Motor experimental FLUX.2 klein 4B para generar y editar imágenes localmente. Importación de pesos por separado. ARM64."

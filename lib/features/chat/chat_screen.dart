@@ -2,32 +2,18 @@ import 'dart:io';
 
 import 'package:llama_flutter_android/llama_flutter_android.dart';
 
-import 'local_model.dart';
+import 'package:flutter/services.dart';
+
+import '../images/flux_engine.dart';
+import '../images/flux_models_screen.dart';
+import '../models/local_model.dart';
+
+part 'chat_message.dart';
+part 'attachment_tile.dart';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-
-enum _Mode { chat, create, edit }
-enum _Action { camera, photos, files, create, edit }
-
-class _Attachment {
-  const _Attachment(this.name, this.path, {this.image = false});
-
-  final String name;
-  final String path;
-  final bool image;
-}
-
-class _Message {
-  _Message(this.text, this.attachments, this.mode);
-
-  String answer = '';
-
-  final String text;
-  final List<_Attachment> attachments;
-  final _Mode mode;
-}
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -45,6 +31,7 @@ class _ChatScreenState extends State<ChatScreen> {
   _Mode _mode = _Mode.chat;
   bool _picking = false;
   final _localModel = LocalModel();
+  final _flux = FluxEngine();
   bool _installed = false;
   bool _generating = false;
   bool _importing = false;
@@ -155,15 +142,21 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
     final message = _Message(text, List.of(_attachments), _mode);
+    final imageTask = _mode != _Mode.chat;
+    message.generatingImage = imageTask;
     final shouldReply = _installed && _mode == _Mode.chat && text.isNotEmpty;
     setState(() {
       _messages.add(message);
-      _generating = shouldReply;
+      _generating = shouldReply || imageTask;
       _attachments.clear();
       _mode = _Mode.chat;
       _composer.clear();
     });
     _focus.unfocus();
+    if (imageTask) {
+      await _renderImage(message);
+      return;
+    }
     if (!shouldReply) return;
     final history = <ChatMessage>[];
     for (final turn in _messages.where((item) => item.answer.isNotEmpty).toList().reversed.take(2).toList().reversed) {
@@ -192,6 +185,34 @@ class _ChatScreenState extends State<ChatScreen> {
       if (mounted) _notice('El motor local no está disponible en este momento.');
     } finally {
       if (mounted) setState(() => _generating = false);
+    }
+  }
+
+  Future<void> _renderImage(_Message message) async {
+    try {
+      if ((await _flux.installed()).length != FluxWeight.values.length) {
+        if (mounted) setState(() {
+          message.imageError = 'Instala los tres pesos desde Modelos de imagen.';
+        });
+        return;
+      }
+      await _localModel.unload();
+      final references = [
+        if (message.mode == _Mode.edit)
+          for (final item in message.attachments.where((item) => item.image).take(2))
+            item.path,
+      ];
+      final result = await _flux.generate(message.text, references);
+      if (mounted) setState(() => message.generatedImage = result);
+    } on PlatformException catch (error) {
+      if (mounted) setState(() => message.imageError = error.message ?? 'Error al generar.');
+    } on Exception {
+      if (mounted) setState(() => message.imageError = 'No se pudo preparar la imagen.');
+    } finally {
+      if (mounted) setState(() {
+        message.generatingImage = false;
+        _generating = false;
+      });
     }
   }
 
@@ -255,6 +276,16 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _openInfo(String title) {
+    if (title == 'Modelos de imagen') {
+      if (_generating) {
+        _notice('Espera a que termine la generación.');
+        return;
+      }
+      Navigator.push<void>(context, MaterialPageRoute(
+        builder: (context) => FluxModelsScreen(engine: _flux),
+      ));
+      return;
+    }
     Navigator.push<void>(context, MaterialPageRoute(
       builder: (context) => Scaffold(
         appBar: AppBar(title: Text(title)),
@@ -275,7 +306,7 @@ class _ChatScreenState extends State<ChatScreen> {
           else
             const ListTile(
               leading: Icon(Icons.system_update_alt),
-              title: Text('ZASKIA 0.3.0'),
+              title: Text('ZASKIA 0.4.0'),
               subtitle: Text('Actualizaciones mediante APK firmada de GitHub Releases.'),
             ),
         ]),
@@ -303,6 +334,7 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
           for (final entry in {
             'Modelos locales': Icons.memory_outlined,
+            'Modelos de imagen': Icons.image_outlined,
             'Ajustes': Icons.settings_outlined,
           }.entries)
             ListTile(
@@ -413,10 +445,16 @@ class _ChatScreenState extends State<ChatScreen> {
         const SizedBox(height: 12),
         Align(
           alignment: Alignment.centerLeft,
-          child: message.answer.isNotEmpty
+          child: message.generatedImage != null
+            ? ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.file(message.generatedImage!, width: 512, fit: BoxFit.contain),
+              )
+            : message.answer.isNotEmpty
             ? SelectableText(message.answer)
             : Text(
-                message.mode != _Mode.chat ? 'Motor de imágenes pendiente'
+                message.mode != _Mode.chat
+                    ? message.imageError ?? (message.generatingImage ? 'Generando imagen con FLUX…' : 'Sin imagen')
                 : !_installed ? _modelStatus
                 : _generating && identical(message, _messages.last) ? 'Generando respuesta…'
                 : message.text.isEmpty ? 'Modelo de texto local' : 'Sin respuesta',
@@ -553,47 +591,3 @@ class _Mark extends StatelessWidget {
   ));
 }
 
-class _AttachmentTile extends StatelessWidget {
-  const _AttachmentTile({required this.attachment, this.onRemove});
-
-  final _Attachment attachment;
-  final VoidCallback? onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final fallback = Container(
-      width: 112,
-      height: 68,
-      padding: const EdgeInsets.all(8),
-      color: colors.surface,
-      child: Row(children: [
-        const Icon(Icons.insert_drive_file_outlined, size: 18),
-        const SizedBox(width: 5),
-        Expanded(child: Text(attachment.name, maxLines: 2,
-          overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11))),
-      ]),
-    );
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: Stack(children: [
-        if (attachment.image)
-          Image.file(File(attachment.path),
-            semanticLabel: attachment.name,
-            width: 112, height: 68, cacheWidth: 336, fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => fallback)
-        else
-          fallback,
-        if (onRemove != null)
-          Positioned(top: 0, right: 0, child: IconButton(
-            tooltip: 'Quitar adjunto',
-            style: IconButton.styleFrom(
-              backgroundColor: Colors.black87, foregroundColor: Colors.white,
-            ),
-            onPressed: onRemove,
-            icon: const Icon(Icons.close, size: 16),
-          )),
-      ]),
-    );
-  }
-}
