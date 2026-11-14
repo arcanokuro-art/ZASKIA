@@ -1,5 +1,9 @@
 import 'dart:io';
 
+import 'package:llama_flutter_android/llama_flutter_android.dart';
+
+import 'local_model.dart';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -16,7 +20,9 @@ class _Attachment {
 }
 
 class _Message {
-  const _Message(this.text, this.attachments, this.mode);
+  _Message(this.text, this.attachments, this.mode);
+
+  String answer = '';
 
   final String text;
   final List<_Attachment> attachments;
@@ -38,11 +44,18 @@ class _ChatScreenState extends State<ChatScreen> {
   final _attachments = <_Attachment>[];
   _Mode _mode = _Mode.chat;
   bool _picking = false;
+  final _localModel = LocalModel();
+  bool _installed = false;
+  bool _generating = false;
+  bool _importing = false;
+
+  String get _modelStatus => _installed ? 'Modelo local instalado' : 'Modelo local sin configurar';
 
   @override
   void initState() {
     super.initState();
     _recoverImages();
+    _checkModel();
   }
 
   @override
@@ -127,10 +140,10 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  bool get _canSend => !_picking &&
+  bool get _canSend => !_picking && !_generating && !_importing &&
       (_composer.text.trim().isNotEmpty || _attachments.isNotEmpty);
 
-  void _send() {
+  Future<void> _send() async {
     if (!_canSend) return;
     final text = _composer.text.trim();
     if (_mode != _Mode.chat && text.isEmpty) {
@@ -141,17 +154,81 @@ class _ChatScreenState extends State<ChatScreen> {
       _notice('Agrega una imagen para editar.');
       return;
     }
+    final message = _Message(text, List.of(_attachments), _mode);
+    final shouldReply = _installed && _mode == _Mode.chat && text.isNotEmpty;
     setState(() {
-      _messages.add(_Message(text, List.of(_attachments), _mode));
+      _messages.add(message);
+      _generating = shouldReply;
       _attachments.clear();
       _mode = _Mode.chat;
       _composer.clear();
     });
     _focus.unfocus();
+    if (!shouldReply) return;
+    final history = <ChatMessage>[];
+    for (final turn in _messages.where((item) => item.answer.isNotEmpty).toList().reversed.take(2).toList().reversed) {
+      history.add(ChatMessage(role: 'user', content: _window(turn.text, 500)));
+      history.add(ChatMessage(role: 'assistant', content: _window(turn.answer, 500)));
+    }
+    history.add(ChatMessage(role: 'user', content: text));
+    try {
+      final output = StringBuffer();
+      await for (final token in _localModel.reply(history)) {
+        if (!mounted) break;
+        output.write(token);
+        final raw = output.toString();
+        final closing = raw.indexOf('</think>');
+        final visible = closing >= 0
+          ? raw.substring(closing + '</think>'.length)
+          : raw.trimLeft().startsWith('<think>') ? '' : raw;
+        setState(() => message.answer = visible.trimLeft());
+      }
+      if (mounted && message.answer.trim().isEmpty) {
+        _notice('El modelo no devolvió texto. Prueba un mensaje más corto.');
+      }
+    } on Exception {
+      if (mounted) _notice('No se pudo generar. Revisa el modelo GGUF y la memoria disponible.');
+    } on StateError {
+      if (mounted) _notice('El motor local no está disponible en este momento.');
+    } finally {
+      if (mounted) setState(() => _generating = false);
+    }
+  }
+
+  String _window(String text, int limit) =>
+      text.length <= limit ? text : text.substring(0, limit);
+
+  Future<void> _checkModel() async {
+    try {
+      final installed = await _localModel.isInstalled();
+      if (mounted) setState(() => _installed = installed);
+    } on Exception {
+      if (mounted) _notice('No se pudo comprobar el almacenamiento de modelos.');
+    }
+  }
+
+  Future<void> _importModel() async {
+    if (_generating || _importing || !_localModel.supported) return;
+    setState(() => _importing = true);
+    try {
+      final result = await FilePicker.platform.pickFiles();
+      final path = result?.files.single.path;
+      if (path == null || !mounted) return;
+      await _localModel.install(path);
+      if (!mounted) return;
+      setState(() => _installed = true);
+      _notice('Modelo importado. Ya puedes volver al chat.');
+    } on FormatException {
+      if (mounted) _notice('Elige un archivo de modelo GGUF válido.');
+    } on Exception {
+      if (mounted) _notice('No se pudo importar el modelo. Revisa el espacio libre.');
+    } finally {
+      if (mounted) setState(() => _importing = false);
+    }
   }
 
   Future<void> _newChat() async {
-    if (_picking) return;
+    if (_picking || _generating || _importing) return;
     if (_messages.isNotEmpty || _attachments.isNotEmpty ||
         _composer.text.trim().isNotEmpty) {
       final confirmed = await showDialog<bool>(
@@ -183,15 +260,22 @@ class _ChatScreenState extends State<ChatScreen> {
         appBar: AppBar(title: Text(title)),
         body: ListView(children: [
           if (title == 'Modelos locales')
-            const ListTile(
-              leading: Icon(Icons.memory_outlined),
-              title: Text('Modelo local sin configurar'),
-              subtitle: Text('La gestión de modelos se habilitará al integrar los motores de IA.'),
-            )
+            StatefulBuilder(builder: (context, update) => ListTile(
+              leading: const Icon(Icons.memory_outlined),
+              title: Text(_importing ? 'Importando modelo…' : _modelStatus),
+              subtitle: const Text('Importar Qwen3 en GGUF. Para 4 GB, prueba Qwen3 1.7B Q4_K_M.'),
+              trailing: const Icon(Icons.file_open_outlined),
+              onTap: _importing || _generating ? null : () async {
+                final operation = _importModel();
+                update(() {});
+                await operation;
+                if (context.mounted) update(() {});
+              },
+            ))
           else
             const ListTile(
               leading: Icon(Icons.system_update_alt),
-              title: Text('ZASKIA 0.2.1'),
+              title: Text('ZASKIA 0.3.0'),
               subtitle: Text('Actualizaciones mediante APK firmada de GitHub Releases.'),
             ),
         ]),
@@ -329,8 +413,15 @@ class _ChatScreenState extends State<ChatScreen> {
         const SizedBox(height: 12),
         Align(
           alignment: Alignment.centerLeft,
-          child: Text('Modelo local sin configurar',
-            style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13)),
+          child: message.answer.isNotEmpty
+            ? SelectableText(message.answer)
+            : Text(
+                message.mode != _Mode.chat ? 'Motor de imágenes pendiente'
+                : !_installed ? _modelStatus
+                : _generating && identical(message, _messages.last) ? 'Generando respuesta…'
+                : message.text.isEmpty ? 'Modelo de texto local' : 'Sin respuesta',
+                style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
+              ),
         ),
       ]),
     );
@@ -439,7 +530,7 @@ class _ChatScreenState extends State<ChatScreen> {
         if (_messages.isEmpty)
           Padding(
             padding: const EdgeInsets.only(left: 8, top: 8),
-            child: Text('Modelo local sin configurar',
+            child: Text(_modelStatus,
               style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12)),
           ),
       ]),
