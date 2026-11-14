@@ -1,0 +1,66 @@
+name: ZASKIA Android APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [develop/flutter-ui-v0.1]
+permissions:
+  contents: read
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Generate Android Flutter scaffold
+        run: flutter create --platforms=android --org com.zaskarstartup --project-name zaskia .
+      - name: Resolve dependencies
+        run: flutter pub get
+      - name: Configure persistent APK signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ZASKIA_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ZASKIA_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ZASKIA_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ZASKIA_KEY_PASSWORD }}
+        run: |
+          test -n "$KEYSTORE_BASE64" || { echo "Missing ZASKIA_KEYSTORE_BASE64"; exit 1; }
+          test -n "$KEYSTORE_PASSWORD" || { echo "Missing ZASKIA_KEYSTORE_PASSWORD"; exit 1; }
+          test -n "$KEY_ALIAS" || { echo "Missing ZASKIA_KEY_ALIAS"; exit 1; }
+          test -n "$KEY_PASSWORD" || { echo "Missing ZASKIA_KEY_PASSWORD"; exit 1; }
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/zaskia-release.jks
+          cat > android/key.properties <<EOF
+          storePassword=$KEYSTORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=zaskia-release.jks
+          EOF
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('android/app/build.gradle.kts')
+          s = p.read_text()
+          s = 'import java.util.Properties\nimport java.io.FileInputStream\n' + s
+          s = s.replace('android {', '''val keyProperties = Properties().apply {
+              load(FileInputStream(rootProject.file("key.properties")))
+          }
+          android {''', 1)
+          s = s.replace('    buildTypes {', '''    signingConfigs {
+                  create("release") {
+                      keyAlias = keyProperties["keyAlias"] as String
+                      keyPassword = keyProperties["keyPassword"] as String
+                      storeFile = file(keyProperties["storeFile"] as String)
+                      storePassword = keyProperties["storePassword"] as String
+                  }
+              }
+              buildTypes {''', 1)
+          s = s.replace('signingConfig = signingConfigs.getByName("debug")', 'signingConfig = signingConfigs.getByName("release")')
+          p.write_text(s)
+          PY
+      - name: Build signed release APK
+        run: flutter build apk --release
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZASKIA-v0.1.0-signed
+          path: build/app/outputs/flutter-apk/app-release.apk
