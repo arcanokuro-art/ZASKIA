@@ -19,7 +19,7 @@ class ChatNavigation extends StatelessWidget {
   final List<Project> projects;
   final String? activeId;
   final ValueChanged<Project> onSelect;
-  final ValueChanged<Project> onRename;
+  final void Function(Project, ConversationAction) onAction;
 
   @override
   Widget build(BuildContext context) {
