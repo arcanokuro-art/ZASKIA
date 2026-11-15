@@ -121,4 +121,4 @@ jobs:
         run: |
           gh release create "$TAG" "$APK" --target "$GITHUB_SHA" --prerelease \
             --title "ZASKIA $TAG" \
-            --notes "Menú de acciones para las conversaciones locales y organización por proyectos."
+            --notes "Menú de conversaciones locales sin acción de compartir."

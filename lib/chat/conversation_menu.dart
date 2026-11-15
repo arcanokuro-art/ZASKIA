@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../workspace/project_store.dart';
 
 enum ConversationAction {
-  rename, pin, lock, share, archive, remove, move, ungroup,
+  rename, pin, lock, archive, remove, move, ungroup,
 }
 
 class ConversationMenu extends StatelessWidget {
@@ -23,7 +23,6 @@ class ConversationMenu extends StatelessWidget {
         _item(ConversationAction.pin, Icons.push_pin_outlined, project.pinned ? 'Desfijar' : 'Fijar'),
         _item(ConversationAction.lock, Icons.lock_outline, project.locked ? 'Quitar bloqueo' : 'Bloquear chat'),
         const PopupMenuDivider(),
-        _item(ConversationAction.share, Icons.share_outlined, 'Compartir'),
         _item(ConversationAction.archive, Icons.archive_outlined, project.archived ? 'Desarchivar' : 'Archivar'),
         _item(ConversationAction.remove, Icons.delete_outline, 'Eliminar', color: danger),
         const PopupMenuDivider(),

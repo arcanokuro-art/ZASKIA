@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:local_auth/local_auth.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../chat/conversation_menu.dart';
 
@@ -151,13 +150,6 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
           if (!project.locked && !await _authenticate()) return;
           await _store.configure(project.id, options: {'locked': !project.locked});
           if (!project.locked && destination == project.id) destination = null;
-        case ConversationAction.share:
-          final latest = (await _store.list()).firstWhere((item) => item.id == project.id);
-          final messages = latest.data['messages'] as List? ?? [];
-          final text = [latest.name, for (final message in messages) message['text'] as String]
-              .where((line) => line.trim().isNotEmpty).join('\n\n');
-          await SharePlus.instance.share(ShareParams(text: text, subject: latest.name));
-          return;
         case ConversationAction.archive:
           await _store.configure(project.id, options: {'archived': !project.archived});
           if (!project.archived && destination == project.id) destination = null;
