@@ -47,7 +47,15 @@ class _Message {
 }
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key, this.project, this.store});
+  const ChatScreen({
+    super.key, this.project, this.store, this.projects = const [],
+    this.onNewConversation, this.onSelectConversation, this.onRenameConversation,
+  });
+
+  final List<Project> projects;
+  final VoidCallback? onNewConversation;
+  final ValueChanged<String>? onSelectConversation;
+  final ValueChanged<Project>? onRenameConversation;
 
   final Project? project;
   final ProjectStore? store;
@@ -61,6 +69,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final _note = TextEditingController();
   final _references = <ProjectReference>[];
   bool _saveFailed = false;
+  bool _sidebarOpen = true;
   bool get _inProject => widget.project != null;
   Iterable<ProjectReference> get _selectedReferences => _references.where((item) => item.selected);
   final _focus = FocusNode();
@@ -279,6 +288,10 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _newChat() async {
     if (_picking) return;
+    if (_inProject) {
+      widget.onNewConversation?.call();
+      return;
+    }
     if (_messages.isNotEmpty || _attachments.isNotEmpty ||
         _composer.text.trim().isNotEmpty) {
       final confirmed = await showDialog<bool>(
@@ -319,7 +332,7 @@ class _ChatScreenState extends State<ChatScreen> {
           else
             const ListTile(
               leading: Icon(Icons.system_update_alt),
-              title: Text('ZASKIA 0.6.0'),
+              title: Text('ZASKIA 0.7.0'),
               subtitle: Text('Actualizaciones mediante APK firmada de GitHub Releases.'),
             ),
         ]),
@@ -332,6 +345,18 @@ class _ChatScreenState extends State<ChatScreen> {
       if (temporary) Navigator.pop(context);
       _newChat();
     },
+    projects: widget.projects,
+    activeId: widget.project?.id,
+    onSelect: (project) {
+      if (_picking || project.id == widget.project?.id) return;
+      if (temporary) Navigator.pop(context);
+      widget.onSelectConversation?.call(project.id);
+    },
+    onRename: (project) {
+      if (_picking) return;
+      if (temporary) Navigator.pop(context);
+      widget.onRenameConversation?.call(project);
+    },
     onOpenPage: (title) {
       if (temporary) Navigator.pop(context);
       _openInfo(title);
@@ -341,35 +366,32 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
-    final wide = width >= (_inProject ? 1120 : 900);
-    final fixedReferences = _inProject && width >= 900;
+    final wide = width >= 900;
     return Scaffold(
     drawer: wide ? null : Drawer(child: _navigation(temporary: true)),
-    endDrawer: _inProject && !fixedReferences ? Drawer(child: _referencesPanel()) : null,
+    endDrawer: _inProject ? Drawer(child: _referencesPanel()) : null,
     drawerScrimColor: Colors.black54,
     appBar: AppBar(
-      leading: wide ? null : Builder(builder: (context) => IconButton(
+      leading: wide && _inProject ? IconButton(
+        tooltip: _sidebarOpen ? 'Ocultar panel lateral' : 'Mostrar panel lateral',
+        onPressed: () => setState(() => _sidebarOpen = !_sidebarOpen),
+        icon: const Icon(Icons.view_sidebar_outlined),
+      ) : wide ? null : Builder(builder: (context) => IconButton(
         tooltip: 'Abrir menú',
         onPressed: () => Scaffold.of(context).openDrawer(),
         icon: const Icon(Icons.menu_rounded),
       )),
       automaticallyImplyLeading: !_inProject,
-      title: Text(widget.project?.name ?? 'ZASKIA', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(
+      title: const Text('ZASKIA', style: TextStyle(
         fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: 0.6,
       )),
       actions: [
-        if (_inProject && !fixedReferences)
+        if (_inProject)
           Builder(builder: (context) => IconButton(
             tooltip: 'Referencias',
             onPressed: () => Scaffold.of(context).openEndDrawer(),
             icon: const Icon(Icons.collections_bookmark_outlined),
           )),
-        if (_inProject)
-          IconButton(
-            tooltip: 'Volver a proyectos',
-            onPressed: _picking ? null : () => Navigator.pop(context),
-            icon: const Icon(Icons.folder_outlined),
-          ),
         IconButton(
           tooltip: 'Nuevo chat',
           onPressed: _picking ? null : _newChat,
@@ -382,8 +404,8 @@ class _ChatScreenState extends State<ChatScreen> {
     body: SafeArea(
       child: Row(children: [
         SizedBox(
-          width: wide ? 220 : 0,
-          child: wide ? _navigation(temporary: false) : null,
+          width: wide && _sidebarOpen ? 248 : 0,
+          child: wide && _sidebarOpen ? _navigation(temporary: false) : null,
         ),
         Expanded(child: Center(
         child: ConstrainedBox(
@@ -415,7 +437,6 @@ class _ChatScreenState extends State<ChatScreen> {
           ]),
         ),
       )),
-      if (fixedReferences) SizedBox(width: 280, child: _referencesPanel()),
       ]),
     ),
   );

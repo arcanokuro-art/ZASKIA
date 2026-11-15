@@ -12,39 +12,53 @@ class ProjectsScreen extends StatefulWidget {
 
 class _ProjectsScreenState extends State<ProjectsScreen> {
   final _store = ProjectStore();
-  List<Project>? _projects;
-  String? _error;
+  List<Project> _projects = [];
+  Project? _active;
   bool _busy = false;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _reload();
+    _load();
   }
 
-  Future<void> _reload() async {
+  Future<void> _load({String? select, bool create = false}) async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
     try {
-      final items = await _store.list();
+      var items = await _store.list();
+      if (create || items.isEmpty) {
+        final project = await _store.create('Nuevo chat');
+        select = project.id;
+        items = [project, ...items];
+      }
+      final active = items.firstWhere((item) => item.id == select, orElse: () => items.first);
       if (mounted) setState(() {
         _projects = items;
-        _error = null;
+        _active = active;
       });
     } on Exception {
-      if (mounted) setState(() => _error = 'No se pudieron abrir los proyectos.');
+      if (mounted) setState(() => _error = 'No se pudo abrir el historial local.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
-  Future<void> _name([Project? project]) async {
+  Future<void> _rename(Project project) async {
     if (_busy) return;
-    var name = project?.name ?? '';
-    final accepted = await showDialog<String>(
+    var name = project.name;
+    final next = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(project == null ? 'Nuevo proyecto' : 'Renombrar proyecto'),
+        title: const Text('Renombrar conversación'),
         content: TextFormField(
           initialValue: name,
-          autofocus: true,
           maxLength: 80,
+          autofocus: true,
           decoration: const InputDecoration(labelText: 'Nombre'),
           onChanged: (value) => name = value,
         ),
@@ -54,94 +68,42 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
             onPressed: () {
               if (name.trim().isNotEmpty) Navigator.pop(context, name.trim());
             },
-            child: Text(project == null ? 'Crear' : 'Guardar'),
+            child: const Text('Guardar'),
           ),
         ],
       ),
     );
-    if (!mounted || accepted == null) return;
-    setState(() => _busy = true);
+    if (next == null || !mounted || _busy) return;
     try {
-      if (project == null) {
-        final created = await _store.create(accepted);
-        await _open(created);
-      } else {
-        await _store.save(Project(project.id, accepted, project.updated, project.data));
-        await _reload();
-      }
+      final latest = (await _store.list()).firstWhere((item) => item.id == project.id);
+      await _store.save(Project(latest.id, next, latest.updated, latest.data));
+      await _load(select: _active?.id);
     } on Exception {
-      if (mounted) setState(() => _error = 'No se pudo guardar el proyecto.');
-    } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(() => _error = 'No se pudo guardar el nombre.');
     }
-  }
-
-  Future<void> _open(Project project) async {
-    if (!mounted) return;
-    await Navigator.push<void>(context, MaterialPageRoute(
-      builder: (context) => ChatScreen(project: project, store: _store),
-    ));
-    await _reload();
   }
 
   @override
   Widget build(BuildContext context) {
-    final projects = _projects;
-    return Scaffold(
-      appBar: AppBar(title: const Text('ZASKIA')),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 760),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
-              children: [
-                Text('Mesa de trabajo', style: Theme.of(context).textTheme.headlineMedium),
-                const SizedBox(height: 20),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: FilledButton.icon(
-                    onPressed: _busy ? null : () => _name(),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Nuevo proyecto'),
-                  ),
-                ),
-                if (_error != null)
-                  ListTile(title: Text(_error!), trailing: TextButton(
-                    onPressed: _reload, child: const Text('Reintentar'),
-                  ))
-                else if (projects == null)
-                  const LinearProgressIndicator()
-                else if (projects.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 24),
-                    child: Text('Crea un proyecto para reunir tu conversación y sus referencias.'),
-                  )
-                else ...[
-                  const SizedBox(height: 24),
-                  ListTile(
-                    leading: const Icon(Icons.history),
-                    title: Text('Continuar ${projects.first.name}'),
-                    onTap: _busy ? null : () => _open(projects.first),
-                  ),
-                  const Divider(),
-                  for (final project in projects)
-                    ListTile(
-                      leading: const Icon(Icons.folder_outlined),
-                      title: Text(project.name),
-                      onTap: _busy ? null : () => _open(project),
-                      trailing: IconButton(
-                        tooltip: 'Renombrar proyecto',
-                        onPressed: _busy ? null : () => _name(project),
-                        icon: const Icon(Icons.edit_outlined),
-                      ),
-                    ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
+    final active = _active;
+    if (_error != null || active == null) {
+      return Scaffold(body: Center(
+        child: _error == null
+          ? const CircularProgressIndicator()
+          : Column(mainAxisSize: MainAxisSize.min, children: [
+              Text(_error!),
+              TextButton(onPressed: _load, child: const Text('Reintentar')),
+            ]),
+      ));
+    }
+    return ChatScreen(
+      key: ValueKey(active.id),
+      project: active,
+      store: _store,
+      projects: _projects,
+      onNewConversation: _busy ? null : () => _load(create: true),
+      onSelectConversation: _busy ? null : (id) => _load(select: id),
+      onRenameConversation: _busy ? null : _rename,
     );
   }
 }
