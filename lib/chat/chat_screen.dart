@@ -4,6 +4,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../workspace/project_store.dart';
+import '../workspace/references_panel.dart';
 import 'chat_navigation.dart';
 
 enum _Mode { chat, create, edit }
@@ -15,18 +17,40 @@ class _Attachment {
   final String name;
   final String path;
   final bool image;
+
+  factory _Attachment.fromJson(Map<String, dynamic> json) => _Attachment(
+    json['name'] as String, json['path'] as String, image: json['image'] as bool,
+  );
+
+  Map<String, Object> toJson() => {'name': name, 'path': path, 'image': image};
 }
 
 class _Message {
-  const _Message(this.text, this.attachments, this.mode);
+  const _Message(this.text, this.attachments, this.mode, {this.note = ''});
 
   final String text;
   final List<_Attachment> attachments;
   final _Mode mode;
+  final String note;
+
+  factory _Message.fromJson(Map<String, dynamic> json) => _Message(
+    json['text'] as String,
+    (json['attachments'] as List).cast<Map<String, dynamic>>().map(_Attachment.fromJson).toList(),
+    _Mode.values.byName(json['mode'] as String),
+    note: json['note'] as String? ?? '',
+  );
+
+  Map<String, Object> toJson() => {
+    'text': text, 'attachments': attachments.map((item) => item.toJson()).toList(),
+    'mode': mode.name, 'note': note,
+  };
 }
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+  const ChatScreen({super.key, this.project, this.store});
+
+  final Project? project;
+  final ProjectStore? store;
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -34,6 +58,11 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final _composer = TextEditingController();
+  final _note = TextEditingController();
+  final _references = <ProjectReference>[];
+  bool _saveFailed = false;
+  bool get _inProject => widget.project != null;
+  Iterable<ProjectReference> get _selectedReferences => _references.where((item) => item.selected);
   final _focus = FocusNode();
   final _picker = ImagePicker();
   final _messages = <_Message>[];
@@ -44,15 +73,98 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    final data = widget.project?.data ?? {};
+    _composer.text = data['draft'] as String? ?? '';
+    _note.text = data['note'] as String? ?? '';
+    _mode = _Mode.values.byName(data['mode'] as String? ?? 'chat');
+    _messages.addAll(_restore(data['messages'], _Message.fromJson));
+    _attachments.addAll(_restore(data['attachments'], _Attachment.fromJson));
+    _references.addAll(_restore(data['references'], ProjectReference.fromJson));
     _recoverImages();
   }
 
   @override
   void dispose() {
     _composer.dispose();
+    _note.dispose();
     _focus.dispose();
     super.dispose();
   }
+
+  Iterable<T> _restore<T>(Object? value, T Function(Map<String, dynamic>) decode) =>
+      (value as List? ?? []).cast<Map<String, dynamic>>().map(decode);
+
+  Future<void> _save() async {
+    final project = widget.project;
+    final store = widget.store;
+    if (project == null || store == null) return;
+    try {
+      await store.save(Project(project.id, project.name, DateTime.now().millisecondsSinceEpoch, {
+        'draft': _composer.text,
+        'note': _note.text,
+        'mode': _mode.name,
+        'messages': _messages.map((item) => item.toJson()).toList(),
+        'attachments': _attachments.map((item) => item.toJson()).toList(),
+        'references': _references.map((item) => item.toJson()).toList(),
+      }));
+      if (mounted && _saveFailed) setState(() => _saveFailed = false);
+    } on Exception {
+      if (mounted) setState(() => _saveFailed = true);
+    }
+  }
+
+  Future<List<_Attachment>> _keepFiles(Iterable<_Attachment> items) async {
+    final project = widget.project;
+    final store = widget.store;
+    if (project == null || store == null) return items.toList();
+    return [
+      for (final item in items)
+        _Attachment(item.name, await store.copyAttachment(project.id, item.path), image: item.image),
+    ];
+  }
+
+  Future<void> _addReferences() async {
+    if (_picking) return;
+    setState(() => _picking = true);
+    try {
+      final result = await FilePicker.platform.pickFiles(allowMultiple: true);
+      final items = await _keepFiles([
+        for (final file in result?.files ?? <PlatformFile>[])
+          if (file.path case final String path)
+            _Attachment(file.name, path, image: _isImage(file.extension)),
+      ]);
+      if (!mounted || items.isEmpty) return;
+      setState(() => _references.addAll(
+        items.map((item) => ProjectReference(item.name, item.path, item.image)),
+      ));
+      await _save();
+    } on Exception {
+      if (mounted) _notice('No se pudieron guardar las referencias.');
+    } finally {
+      if (mounted) setState(() => _picking = false);
+    }
+  }
+
+  Widget _referencesPanel() => ReferencesPanel(
+    references: _references,
+    note: _note,
+    onNoteChanged: (_) {
+      setState(() {});
+      _save();
+    },
+    onAdd: _picking ? null : _addReferences,
+    onToggle: (index) {
+      final item = _references[index];
+      setState(() => _references[index] = ProjectReference(
+        item.name, item.path, item.image, selected: !item.selected,
+      ));
+      _save();
+    },
+    onRemove: (index) {
+      setState(() => _references.removeAt(index));
+      _save();
+    },
+  );
 
   Future<void> _recoverImages() async {
     try {
@@ -60,7 +172,10 @@ class _ChatScreenState extends State<ChatScreen> {
       if (!mounted || result.isEmpty) return;
       if (result.exception != null) throw result.exception!;
       final files = result.files ?? [];
-      setState(() => _attachments.addAll(files.map(_photo)));
+      final recovered = await _keepFiles(files.map(_photo));
+      if (!mounted) return;
+      setState(() => _attachments.addAll(recovered));
+      await _save();
     } on Exception {
       if (mounted) _notice('No se pudo recuperar la foto.');
     }
@@ -98,7 +213,10 @@ class _ChatScreenState extends State<ChatScreen> {
           return;
       }
       if (!mounted) return;
-      setState(() => _attachments.addAll(selected));
+      final saved = await _keepFiles(selected);
+      if (!mounted) return;
+      setState(() => _attachments.addAll(saved));
+      if (saved.isNotEmpty) await _save();
     } on Exception {
       if (mounted) _notice('No se pudo abrir el selector. Inténtalo de nuevo.');
     } finally {
@@ -113,6 +231,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void _setMode(_Mode mode) {
     setState(() => _mode = mode);
     _focus.requestFocus();
+    _save();
   }
 
   Future<void> _handleAction(_Action action) async {
@@ -139,17 +258,23 @@ class _ChatScreenState extends State<ChatScreen> {
       _notice('Escribe lo que quieres hacer con la imagen.');
       return;
     }
-    if (_mode == _Mode.edit && !_attachments.any((item) => item.image)) {
+    final attachments = [
+      ..._attachments,
+      for (final reference in _selectedReferences)
+        _Attachment(reference.name, reference.path, image: reference.image),
+    ];
+    if (_mode == _Mode.edit && !attachments.any((item) => item.image)) {
       _notice('Agrega una imagen para editar.');
       return;
     }
     setState(() {
-      _messages.add(_Message(text, List.of(_attachments), _mode));
+      _messages.add(_Message(text, attachments, _mode, note: _note.text.trim()));
       _attachments.clear();
       _mode = _Mode.chat;
       _composer.clear();
     });
     _focus.unfocus();
+    _save();
   }
 
   Future<void> _newChat() async {
@@ -177,6 +302,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _composer.clear();
       _mode = _Mode.chat;
     });
+    _save();
   }
 
   void _openInfo(String title) {
@@ -193,7 +319,7 @@ class _ChatScreenState extends State<ChatScreen> {
           else
             const ListTile(
               leading: Icon(Icons.system_update_alt),
-              title: Text('ZASKIA 0.5.0'),
+              title: Text('ZASKIA 0.6.0'),
               subtitle: Text('Actualizaciones mediante APK firmada de GitHub Releases.'),
             ),
         ]),
@@ -214,9 +340,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final wide = MediaQuery.sizeOf(context).width >= 900;
+    final width = MediaQuery.sizeOf(context).width;
+    final wide = width >= (_inProject ? 1120 : 900);
+    final fixedReferences = _inProject && width >= 900;
     return Scaffold(
     drawer: wide ? null : Drawer(child: _navigation(temporary: true)),
+    endDrawer: _inProject && !fixedReferences ? Drawer(child: _referencesPanel()) : null,
     drawerScrimColor: Colors.black54,
     appBar: AppBar(
       leading: wide ? null : Builder(builder: (context) => IconButton(
@@ -224,10 +353,23 @@ class _ChatScreenState extends State<ChatScreen> {
         onPressed: () => Scaffold.of(context).openDrawer(),
         icon: const Icon(Icons.menu_rounded),
       )),
-      title: const Text('ZASKIA', style: TextStyle(
+      automaticallyImplyLeading: !_inProject,
+      title: Text(widget.project?.name ?? 'ZASKIA', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(
         fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: 0.6,
       )),
       actions: [
+        if (_inProject && !fixedReferences)
+          Builder(builder: (context) => IconButton(
+            tooltip: 'Referencias',
+            onPressed: () => Scaffold.of(context).openEndDrawer(),
+            icon: const Icon(Icons.collections_bookmark_outlined),
+          )),
+        if (_inProject)
+          IconButton(
+            tooltip: 'Volver a proyectos',
+            onPressed: _picking ? null : () => Navigator.pop(context),
+            icon: const Icon(Icons.folder_outlined),
+          ),
         IconButton(
           tooltip: 'Nuevo chat',
           onPressed: _picking ? null : _newChat,
@@ -240,7 +382,7 @@ class _ChatScreenState extends State<ChatScreen> {
     body: SafeArea(
       child: Row(children: [
         SizedBox(
-          width: wide ? 248 : 0,
+          width: wide ? 220 : 0,
           child: wide ? _navigation(temporary: false) : null,
         ),
         Expanded(child: Center(
@@ -273,6 +415,7 @@ class _ChatScreenState extends State<ChatScreen> {
           ]),
         ),
       )),
+      if (fixedReferences) SizedBox(width: 280, child: _referencesPanel()),
       ]),
     ),
   );
@@ -310,6 +453,8 @@ class _ChatScreenState extends State<ChatScreen> {
                   ]),
                 ),
               if (message.text.isNotEmpty) SelectableText(message.text),
+              if (message.note.isNotEmpty)
+                Padding(padding: const EdgeInsets.only(top: 8), child: Text('Nota: ${message.note}')),
             ]),
           ),
         ),
@@ -358,7 +503,10 @@ class _ChatScreenState extends State<ChatScreen> {
                 padding: const EdgeInsets.only(left: 10),
                 child: InputChip(
                   label: Text(_mode == _Mode.create ? 'Crear imagen' : 'Editar imagen'),
-                  onDeleted: () => setState(() => _mode = _Mode.chat),
+                  onDeleted: () {
+                    setState(() => _mode = _Mode.chat);
+                    _save();
+                  },
                 ),
               ),
             if (_attachments.isNotEmpty)
@@ -371,7 +519,10 @@ class _ChatScreenState extends State<ChatScreen> {
                   separatorBuilder: (_, __) => const SizedBox(width: 8),
                   itemBuilder: (context, index) => _AttachmentTile(
                     attachment: _attachments[index],
-                    onRemove: () => setState(() => _attachments.removeAt(index)),
+                    onRemove: () {
+                      setState(() => _attachments.removeAt(index));
+                      _save();
+                    },
                   ),
                 ),
               ),
@@ -402,6 +553,7 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
               Expanded(child: TextField(
                 controller: _composer,
+                onChanged: (_) => _save(),
                 focusNode: _focus,
                 minLines: 1,
                 maxLines: 4,
@@ -423,6 +575,13 @@ class _ChatScreenState extends State<ChatScreen> {
             ]),
           ]),
         ),
+        if (_inProject && (_selectedReferences.isNotEmpty || _note.text.trim().isNotEmpty))
+          Padding(
+            padding: const EdgeInsets.only(top: 8, left: 8),
+            child: Text('${_selectedReferences.length} archivo(s) seleccionado(s)${_note.text.trim().isEmpty ? '' : ' · Nota incluida'}'),
+          ),
+        if (_saveFailed)
+          TextButton(onPressed: _save, child: const Text('No se guardó. Reintentar')),
         if (_messages.isEmpty)
           Padding(
             padding: const EdgeInsets.only(left: 8, top: 8),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:zaskia/main.dart';
+import 'package:zaskia/chat/chat_screen.dart';
+import 'package:zaskia/platform/android_tablet.dart';
 
 void tablet(WidgetTester tester, Size window, {Size? display}) {
   tester.view.devicePixelRatio = 1;
@@ -14,7 +15,7 @@ void tablet(WidgetTester tester, Size window, {Size? display}) {
 void main() {
   testWidgets('opens the chat and shows the five attachment actions', (tester) async {
     tablet(tester, const Size(800, 900));
-    await tester.pumpWidget(const ZaskiaApp());
+    await tester.pumpWidget(const MaterialApp(home: AndroidTablet(child: ChatScreen())));
     await tester.pumpAndSettle();
     expect(find.text('¿En qué te ayudo?'), findsOneWidget);
     await tester.tap(find.byTooltip('Adjuntar o elegir herramienta'));
@@ -27,7 +28,7 @@ void main() {
 
   testWidgets('shows a submitted message and the model status', (tester) async {
     tablet(tester, const Size(800, 900));
-    await tester.pumpWidget(const ZaskiaApp());
+    await tester.pumpWidget(const MaterialApp(home: AndroidTablet(child: ChatScreen())));
     await tester.enterText(find.byType(TextField), 'Hola, ZASKIA');
     await tester.pump();
     await tester.tap(find.byTooltip('Enviar'));
@@ -37,7 +38,7 @@ void main() {
   });
   testWidgets('switches sidebar on resize and preserves the draft', (tester) async {
     tablet(tester, const Size(1200, 800));
-    await tester.pumpWidget(const ZaskiaApp());
+    await tester.pumpWidget(const MaterialApp(home: AndroidTablet(child: ChatScreen())));
     await tester.pumpAndSettle();
     expect(find.text('Ajustes'), findsOneWidget);
     expect(find.byTooltip('Abrir menú'), findsNothing);
@@ -53,7 +54,7 @@ void main() {
 
   testWidgets('shows the tablet requirement on a phone display', (tester) async {
     tablet(tester, const Size(400, 850));
-    await tester.pumpWidget(const ZaskiaApp());
+    await tester.pumpWidget(const MaterialApp(home: AndroidTablet(child: ChatScreen())));
     expect(find.textContaining('diseñada para tablets Android'), findsOneWidget);
     expect(find.byType(TextField), findsNothing);
   });
