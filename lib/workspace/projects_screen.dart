@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:local_auth/local_auth.dart';
+import 'package:share_plus/share_plus.dart';
+
+import '../chat/conversation_menu.dart';
 
 import '../chat/chat_screen.dart';
 import 'project_store.dart';
@@ -31,14 +35,16 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     });
     try {
       var items = await _store.list();
-      if (create || items.isEmpty) {
+      final selected = items.where((item) => item.id == select).firstOrNull;
+      if (selected?.locked == true && _active?.id != selected?.id && !await _authenticate()) return;
+      if (create || (selected == null && !items.any((item) => !item.archived && !item.locked))) {
         final project = await _store.create('Nuevo chat');
         select = project.id;
         items = [project, ...items];
       }
-      final active = items.firstWhere((item) => item.id == select, orElse: () => items.first);
+      final active = items.firstWhere((item) => item.id == select, orElse: () => items.firstWhere((item) => !item.archived && !item.locked));
       if (mounted) setState(() {
-        _projects = items;
+        _projects = [...items.where((item) => item.pinned), ...items.where((item) => !item.pinned)];
         _active = active;
       });
     } on Exception {
@@ -75,11 +81,113 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     );
     if (next == null || !mounted || _busy) return;
     try {
-      final latest = (await _store.list()).firstWhere((item) => item.id == project.id);
-      await _store.save(Project(latest.id, next, latest.updated, latest.data));
+      await _store.configure(project.id, name: next);
       await _load(select: _active?.id);
     } on Exception {
       if (mounted) setState(() => _error = 'No se pudo guardar el nombre.');
+    }
+  }
+
+  Future<bool> _authenticate() async {
+    try {
+      return await LocalAuthentication().authenticate(
+        localizedReason: 'Confirma tu identidad para acceder a este chat.',
+      );
+    } on Exception {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Configura el bloqueo de pantalla de Android para usar esta opción.'),
+        ));
+      }
+      return false;
+    }
+  }
+
+  Future<String?> _chooseFolder() async {
+    final folders = _projects.map((item) => item.folder).nonNulls.toSet();
+    var name = '';
+    return showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Mover a un proyecto'),
+        children: [
+          for (final folder in folders)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, folder),
+              child: Text(folder),
+            ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: TextField(
+              maxLength: 80,
+              decoration: const InputDecoration(labelText: 'Nombre del nuevo proyecto'),
+              onChanged: (value) => name = value.trim(),
+            ),
+          ),
+          SimpleDialogOption(
+            onPressed: () {
+              if (name.isNotEmpty) Navigator.pop(context, name);
+            },
+            child: const Text('Crear y mover'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _onAction(Project project, ConversationAction action) async {
+    if (_busy) return;
+    if (project.locked && _active?.id != project.id && !await _authenticate()) return;
+    if (!mounted) return;
+    var destination = _active?.id;
+    try {
+      switch (action) {
+        case ConversationAction.rename:
+          await _rename(project);
+          return;
+        case ConversationAction.pin:
+          await _store.configure(project.id, options: {'pinned': !project.pinned});
+        case ConversationAction.lock:
+          if (!project.locked && !await _authenticate()) return;
+          await _store.configure(project.id, options: {'locked': !project.locked});
+          if (!project.locked && destination == project.id) destination = null;
+        case ConversationAction.share:
+          final latest = (await _store.list()).firstWhere((item) => item.id == project.id);
+          final messages = latest.data['messages'] as List? ?? [];
+          final text = [latest.name, for (final message in messages) message['text'] as String]
+              .where((line) => line.trim().isNotEmpty).join('\n\n');
+          await SharePlus.instance.share(ShareParams(text: text, subject: latest.name));
+          return;
+        case ConversationAction.archive:
+          await _store.configure(project.id, options: {'archived': !project.archived});
+          if (!project.archived && destination == project.id) destination = null;
+        case ConversationAction.remove:
+          final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('¿Eliminar conversación?'),
+              content: Text('Se borrarán «${project.name}» y sus archivos locales.'),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+                FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Eliminar')),
+              ],
+            ),
+          );
+          if (confirmed != true || !mounted) return;
+          await _store.remove(project.id);
+          if (destination == project.id) destination = null;
+        case ConversationAction.move:
+          final folder = await _chooseFolder();
+          if (folder == null) return;
+          await _store.configure(project.id, options: {'folder': folder});
+        case ConversationAction.ungroup:
+          await _store.configure(project.id, options: {'folder': null});
+      }
+      if (mounted) await _load(select: destination);
+    } on Exception {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo completar la acción.')),
+      );
     }
   }
 
@@ -103,7 +211,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
       projects: _projects,
       onNewConversation: _busy ? null : () => _load(create: true),
       onSelectConversation: _busy ? null : (id) => _load(select: id),
-      onRenameConversation: _busy ? null : _rename,
+      onConversationAction: _busy ? null : _onAction,
     );
   }
 }

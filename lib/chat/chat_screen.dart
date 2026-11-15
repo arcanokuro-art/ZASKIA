@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../workspace/project_store.dart';
 import '../workspace/references_panel.dart';
 import 'chat_navigation.dart';
+import 'conversation_menu.dart';
 
 enum _Mode { chat, create, edit }
 enum _Action { camera, photos, files, create, edit }
@@ -49,13 +50,13 @@ class _Message {
 class ChatScreen extends StatefulWidget {
   const ChatScreen({
     super.key, this.project, this.store, this.projects = const [],
-    this.onNewConversation, this.onSelectConversation, this.onRenameConversation,
+    this.onNewConversation, this.onSelectConversation, this.onConversationAction,
   });
 
   final List<Project> projects;
   final VoidCallback? onNewConversation;
   final ValueChanged<String>? onSelectConversation;
-  final ValueChanged<Project>? onRenameConversation;
+  final void Function(Project, ConversationAction)? onConversationAction;
 
   final Project? project;
   final ProjectStore? store;
@@ -115,7 +116,7 @@ class _ChatScreenState extends State<ChatScreen> {
         'messages': _messages.map((item) => item.toJson()).toList(),
         'attachments': _attachments.map((item) => item.toJson()).toList(),
         'references': _references.map((item) => item.toJson()).toList(),
-      }));
+      }), preserveOptions: true);
       if (mounted && _saveFailed) setState(() => _saveFailed = false);
     } on Exception {
       if (mounted) setState(() => _saveFailed = true);
@@ -332,7 +333,7 @@ class _ChatScreenState extends State<ChatScreen> {
           else
             const ListTile(
               leading: Icon(Icons.system_update_alt),
-              title: Text('ZASKIA 0.7.0'),
+              title: Text('ZASKIA 0.8.0'),
               subtitle: Text('Actualizaciones mediante APK firmada de GitHub Releases.'),
             ),
         ]),
@@ -352,10 +353,10 @@ class _ChatScreenState extends State<ChatScreen> {
       if (temporary) Navigator.pop(context);
       widget.onSelectConversation?.call(project.id);
     },
-    onRename: (project) {
+    onAction: (project, action) {
       if (_picking) return;
       if (temporary) Navigator.pop(context);
-      widget.onRenameConversation?.call(project);
+      widget.onConversationAction?.call(project, action);
     },
     onOpenPage: (title) {
       if (temporary) Navigator.pop(context);

@@ -1,7 +1,7 @@
 name: zaskia
 description: ZASKIA - IA local de Zaskar Startup
 publish_to: none
-version: 0.7.0+9
+version: 0.8.0+10
 environment:
   sdk: '>=3.4.0 <4.0.0'
 dependencies:
@@ -11,6 +11,8 @@ dependencies:
   file_picker: 10.2.0
   image_picker: 1.1.2
   path_provider: 2.1.5
+  local_auth: 2.3.0
+  share_plus: 11.0.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

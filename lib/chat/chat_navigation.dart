@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../workspace/project_store.dart';
+import 'conversation_menu.dart';
 
 class ChatNavigation extends StatelessWidget {
   const ChatNavigation({
@@ -10,7 +11,7 @@ class ChatNavigation extends StatelessWidget {
     required this.projects,
     required this.activeId,
     required this.onSelect,
-    required this.onRename,
+    required this.onAction,
   });
 
   final VoidCallback onNewChat;
@@ -43,21 +44,28 @@ class ChatNavigation extends StatelessWidget {
                 padding: EdgeInsets.fromLTRB(12, 18, 12, 6),
                 child: Text('Conversaciones'),
               ),
-              for (final project in projects)
-                ListTile(
-                  dense: true,
-                  selected: project.id == activeId,
-                  selectedTileColor: colors.surfaceContainerHighest,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  title: Text(project.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                  onTap: () => onSelect(project),
-                  trailing: PopupMenuButton<String>(
-                    tooltip: 'Opciones de conversación',
-                    onSelected: (_) => onRename(project),
-                    itemBuilder: (context) => const [
-                      PopupMenuItem(value: 'rename', child: Text('Renombrar')),
-                    ],
-                  ),
+              for (final project in projects.where((item) => !item.archived && item.folder == null))
+                _conversation(context, project),
+              for (final folder in projects.where((item) => !item.archived)
+                  .map((item) => item.folder).nonNulls.toSet())
+                ExpansionTile(
+                  key: PageStorageKey(folder),
+                  leading: const Icon(Icons.folder_outlined),
+                  title: Text(folder),
+                  initiallyExpanded: projects.any((item) => item.id == activeId && item.folder == folder),
+                  children: [
+                    for (final project in projects.where((item) => !item.archived && item.folder == folder))
+                      _conversation(context, project),
+                  ],
+                ),
+              if (projects.any((item) => item.archived))
+                ExpansionTile(
+                  leading: const Icon(Icons.archive_outlined),
+                  title: const Text('Archivados'),
+                  children: [
+                    for (final project in projects.where((item) => item.archived))
+                      _conversation(context, project),
+                  ],
                 ),
               const Divider(height: 28),
             ] else
@@ -77,4 +85,18 @@ class ChatNavigation extends StatelessWidget {
       ),
     );
   }
+  Widget _conversation(BuildContext context, Project project) => ListTile(
+    dense: true,
+    selected: project.id == activeId,
+    selectedTileColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    leading: project.locked ? const Icon(Icons.lock_outline, size: 16)
+      : project.pinned ? const Icon(Icons.push_pin_outlined, size: 16) : null,
+    title: Text(project.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+    onTap: () => onSelect(project),
+    trailing: ConversationMenu(
+      project: project,
+      onAction: (action) => onAction(project, action),
+    ),
+  );
 }
