@@ -118,4 +118,4 @@ jobs:
         run: |
           gh release create "$TAG" "$APK" --target "$GITHUB_SHA" --prerelease \
             --title "ZASKIA $TAG" \
-            --notes "Chat minimalista en blanco y negro con tema claro u oscuro según Android. La generación y edición requieren motores de IA que aún no están integrados."
+            --notes "Interfaz adaptable para tablets Android con panel lateral en ventanas anchas y menú plegable en ventanas estrechas."

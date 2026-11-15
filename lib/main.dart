@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'chat_screen.dart';
+import 'chat/chat_screen.dart';
+import 'platform/android_tablet.dart';
 
 void main() => runApp(const ZaskiaApp());
 
@@ -13,7 +14,7 @@ class ZaskiaApp extends StatelessWidget {
     debugShowCheckedModeBanner: false,
     theme: _theme(Brightness.light),
     darkTheme: _theme(Brightness.dark),
-    home: const ChatScreen(),
+    home: const AndroidTablet(child: ChatScreen()),
   );
 
   ThemeData _theme(Brightness brightness) {

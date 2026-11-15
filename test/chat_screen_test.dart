@@ -2,8 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zaskia/main.dart';
 
+void tablet(WidgetTester tester, Size window, {Size? display}) {
+  tester.view.devicePixelRatio = 1;
+  tester.view.physicalSize = window;
+  tester.view.display.devicePixelRatio = 1;
+  tester.view.display.size = display ?? window;
+  addTearDown(tester.view.reset);
+  addTearDown(tester.view.display.reset);
+}
+
 void main() {
   testWidgets('opens the chat and shows the five attachment actions', (tester) async {
+    tablet(tester, const Size(800, 900));
     await tester.pumpWidget(const ZaskiaApp());
     await tester.pumpAndSettle();
     expect(find.text('¿En qué te ayudo?'), findsOneWidget);
@@ -16,6 +26,7 @@ void main() {
   });
 
   testWidgets('shows a submitted message and the model status', (tester) async {
+    tablet(tester, const Size(800, 900));
     await tester.pumpWidget(const ZaskiaApp());
     await tester.enterText(find.byType(TextField), 'Hola, ZASKIA');
     await tester.pump();
@@ -23,5 +34,27 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Hola, ZASKIA'), findsOneWidget);
     expect(find.text('Modelo local sin configurar'), findsOneWidget);
+  });
+  testWidgets('switches sidebar on resize and preserves the draft', (tester) async {
+    tablet(tester, const Size(1200, 800));
+    await tester.pumpWidget(const ZaskiaApp());
+    await tester.pumpAndSettle();
+    expect(find.text('Ajustes'), findsOneWidget);
+    expect(find.byTooltip('Abrir menú'), findsNothing);
+    await tester.enterText(find.byType(TextField), 'Borrador');
+    tester.view.physicalSize = const Size(500, 800);
+    await tester.pumpAndSettle();
+    expect(find.text('Ajustes'), findsNothing);
+    expect(find.text('Borrador'), findsOneWidget);
+    await tester.tap(find.byTooltip('Abrir menú'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ajustes'), findsOneWidget);
+  });
+
+  testWidgets('shows the tablet requirement on a phone display', (tester) async {
+    tablet(tester, const Size(400, 850));
+    await tester.pumpWidget(const ZaskiaApp());
+    expect(find.textContaining('diseñada para tablets Android'), findsOneWidget);
+    expect(find.byType(TextField), findsNothing);
   });
 }

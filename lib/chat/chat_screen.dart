@@ -4,6 +4,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'chat_navigation.dart';
+
 enum _Mode { chat, create, edit }
 enum _Action { camera, photos, files, create, edit }
 
@@ -191,7 +193,7 @@ class _ChatScreenState extends State<ChatScreen> {
           else
             const ListTile(
               leading: Icon(Icons.system_update_alt),
-              title: Text('ZASKIA 0.2.1'),
+              title: Text('ZASKIA 0.5.0'),
               subtitle: Text('Actualizaciones mediante APK firmada de GitHub Releases.'),
             ),
         ]),
@@ -199,47 +201,25 @@ class _ChatScreenState extends State<ChatScreen> {
     ));
   }
 
-  Widget _drawer() => Drawer(
-    child: SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
-        children: [
-          const ListTile(
-            leading: _Mark(size: 32),
-            title: Text('ZASKIA', style: TextStyle(fontWeight: FontWeight.w800)),
-          ),
-          const SizedBox(height: 16),
-          ListTile(
-            leading: const Icon(Icons.add_comment_outlined),
-            title: const Text('Nuevo chat'),
-            onTap: () {
-              Navigator.pop(context);
-              _newChat();
-            },
-          ),
-          for (final entry in {
-            'Modelos locales': Icons.memory_outlined,
-            'Ajustes': Icons.settings_outlined,
-          }.entries)
-            ListTile(
-              leading: Icon(entry.value),
-              title: Text(entry.key),
-              onTap: () {
-                Navigator.pop(context);
-                _openInfo(entry.key);
-              },
-            ),
-        ],
-      ),
-    ),
+  Widget _navigation({required bool temporary}) => ChatNavigation(
+    onNewChat: () {
+      if (temporary) Navigator.pop(context);
+      _newChat();
+    },
+    onOpenPage: (title) {
+      if (temporary) Navigator.pop(context);
+      _openInfo(title);
+    },
   );
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    drawer: _drawer(),
+  Widget build(BuildContext context) {
+    final wide = MediaQuery.sizeOf(context).width >= 900;
+    return Scaffold(
+    drawer: wide ? null : Drawer(child: _navigation(temporary: true)),
     drawerScrimColor: Colors.black54,
     appBar: AppBar(
-      leading: Builder(builder: (context) => IconButton(
+      leading: wide ? null : Builder(builder: (context) => IconButton(
         tooltip: 'Abrir menú',
         onPressed: () => Scaffold.of(context).openDrawer(),
         icon: const Icon(Icons.menu_rounded),
@@ -258,9 +238,14 @@ class _ChatScreenState extends State<ChatScreen> {
       ],
     ),
     body: SafeArea(
-      child: Center(
+      child: Row(children: [
+        SizedBox(
+          width: wide ? 248 : 0,
+          child: wide ? _navigation(temporary: false) : null,
+        ),
+        Expanded(child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 720),
+          constraints: BoxConstraints(maxWidth: wide ? 820 : 720),
           child: Column(children: [
             Expanded(
               child: _messages.isEmpty
@@ -287,9 +272,11 @@ class _ChatScreenState extends State<ChatScreen> {
             _input(context),
           ]),
         ),
-      ),
+      )),
+      ]),
     ),
   );
+  }
 
   Widget _message(_Message message) {
     final colors = Theme.of(context).colorScheme;
