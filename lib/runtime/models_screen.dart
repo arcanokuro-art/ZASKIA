@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'model_runtime.dart';
+import 'hugging_face_screen.dart';
 
 class ModelsScreen extends StatefulWidget {
   const ModelsScreen({super.key, required this.runtime});
@@ -65,6 +66,16 @@ class _ModelsScreenState extends State<ModelsScreen> {
     appBar: AppBar(title: const Text('Modelos y conexión')),
     body: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 760),
       child: ListView(padding: const EdgeInsets.all(24), children: [
+        ListTile(
+          leading: const Icon(Icons.public),
+          title: const Text('Hugging Face'),
+          subtitle: const Text('Buscar modelos y descargar archivos GGUF'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.push<void>(context, MaterialPageRoute(
+            builder: (context) => const HuggingFaceScreen(),
+          )),
+        ),
+        const SizedBox(height: 20),
         TextField(controller: _address, enabled: !_busy,
           decoration: const InputDecoration(labelText: 'Dirección de Ollama',
             hintText: 'http://192.168.1.20:11434', border: OutlineInputBorder())),
