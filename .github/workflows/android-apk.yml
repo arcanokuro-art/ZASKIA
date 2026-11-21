@@ -27,6 +27,8 @@ jobs:
           scaffold="$(mktemp -d)"
           flutter create --no-pub --platforms=android --org com.zaskarstartup --project-name zaskia "$scaffold"
           cp -a "$scaffold/android" android
+          sed -i '/<application/i\    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
+          sed -i '/<application/a\        android:usesCleartextTraffic="true"' android/app/src/main/AndroidManifest.xml
           sed -i 's/FlutterActivity/FlutterFragmentActivity/g' android/app/src/main/kotlin/com/zaskarstartup/zaskia/MainActivity.kt
           sed -i '/<application/i\    <uses-permission android:name="android.permission.USE_BIOMETRIC" />' android/app/src/main/AndroidManifest.xml
           find android/app/src/main/res -name styles.xml -exec sed -i -E 's/@android:style\/Theme\.(Light|Black)\.NoTitleBar/Theme.AppCompat.DayNight.NoActionBar/g' {} +
@@ -121,4 +123,4 @@ jobs:
         run: |
           gh release create "$TAG" "$APK" --target "$GITHUB_SHA" --prerelease \
             --title "ZASKIA $TAG" \
-            --notes "Menú de conversaciones locales sin acción de compartir."
+            --notes "Piloto con conexión Ollama, administración de modelos, chat con respuestas en tiempo real y lectura de archivos de texto seleccionados."
