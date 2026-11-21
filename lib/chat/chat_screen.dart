@@ -355,7 +355,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _newChat() async {
-    if (_picking) return;
+    if (_picking || _generating) return;
     if (_inProject) {
       widget.onNewConversation?.call();
       return;
@@ -387,6 +387,12 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _openInfo(String title) {
+    if (title == 'Modelos locales') {
+      Navigator.push<void>(context, MaterialPageRoute(
+        builder: (context) => ModelsScreen(runtime: _runtime),
+      )).then((_) { if (mounted) setState(() {}); });
+      return;
+    }
     Navigator.push<void>(context, MaterialPageRoute(
       builder: (context) => Scaffold(
         appBar: AppBar(title: Text(title)),
@@ -400,7 +406,7 @@ class _ChatScreenState extends State<ChatScreen> {
           else
             const ListTile(
               leading: Icon(Icons.system_update_alt),
-              title: Text('ZASKIA 0.8.1'),
+              title: Text('ZASKIA 0.9.1'),
               subtitle: Text('Actualizaciones mediante APK firmada de GitHub Releases.'),
             ),
         ]),
@@ -550,7 +556,8 @@ class _ChatScreenState extends State<ChatScreen> {
         const SizedBox(height: 12),
         Align(
           alignment: Alignment.centerLeft,
-          child: Text('Modelo local sin configurar',
+          child: message.answer.isNotEmpty ? SelectableText(message.answer) : Text(
+            _generating && identical(message, _messages.last) ? 'Generando…' : _runtime.model.isEmpty ? 'Modelo local sin configurar' : 'Sin respuesta',
             style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13)),
         ),
       ]),
@@ -656,9 +663,9 @@ class _ChatScreenState extends State<ChatScreen> {
               ValueListenableBuilder<TextEditingValue>(
                 valueListenable: _composer,
                 builder: (context, value, child) => IconButton.filled(
-                  tooltip: 'Enviar',
-                  onPressed: _canSend ? _send : null,
-                  icon: const Icon(Icons.arrow_upward_rounded),
+                  tooltip: _generating ? 'Detener' : 'Enviar',
+                  onPressed: _generating ? _runtime.stop : _canSend ? _send : null,
+                  icon: Icon(_generating ? Icons.stop_rounded : Icons.arrow_upward_rounded),
                 ),
               ),
             ]),
