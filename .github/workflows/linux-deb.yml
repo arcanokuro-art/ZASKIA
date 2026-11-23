@@ -31,6 +31,7 @@ jobs:
       - name: Generate Linux desktop runner
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config --global --add safe.directory "$FLUTTER_ROOT"
           scaffold="$(mktemp -d)"
           flutter create --no-pub --platforms=linux --org com.zaskarstartup --project-name zaskia "$scaffold"
           cp -a "$scaffold/linux" linux

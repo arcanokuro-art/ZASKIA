@@ -60,8 +60,6 @@ void main() {
     expect(find.byType(TextField), findsNothing);
   });
   testWidgets('Linux accepts a narrow desktop window and hides Android camera', (tester) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.linux;
-    addTearDown(() => debugDefaultTargetPlatformOverride = null);
     tablet(tester, const Size(500, 800));
     await tester.pumpWidget(const MaterialApp(home: AndroidTablet(child: ChatScreen())));
     await tester.pumpAndSettle();
@@ -70,6 +68,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Cámara'), findsNothing);
     expect(find.text('Archivos'), findsOneWidget);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
 }
