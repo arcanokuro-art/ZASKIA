@@ -71,7 +71,15 @@ class LinuxTextEngine {
           final request = await client.getUrl(Uri.parse('http://127.0.0.1:$_port/health'));
           final response = await request.close().timeout(const Duration(seconds: 2));
           await response.drain<void>();
-          if (response.statusCode == 200) { loadedPath = path; return; }
+          if (response.statusCode == 200) {
+            // Read the actual loaded library: startup logging can be suppressed.
+            try {
+              final maps = await File('/proc/${process.pid}/maps').readAsString();
+              cpuBackend = RegExp(r'libggml-cpu[^/\s]*\.so').firstMatch(maps)?.group(0) ?? cpuBackend;
+            } on FileSystemException { /* Keep the backend reported by stderr. */ }
+            loadedPath = path;
+            return;
+          }
         } on IOException {
           // The process is still starting or loading the model.
         } on TimeoutException {

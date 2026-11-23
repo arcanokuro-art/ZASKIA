@@ -205,6 +205,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   );
 
   Future<void> _recoverImages() async {
+    if (!Platform.isAndroid) return;
     try {
       final result = await _picker.retrieveLostData();
       if (!mounted || result.isEmpty) return;
