@@ -69,8 +69,8 @@ class _ModelsScreenState extends State<ModelsScreen> {
       child: ListView(padding: const EdgeInsets.all(24), children: [
         ListTile(
           leading: const Icon(Icons.memory_outlined),
-          title: const Text('Ejecutar en esta tablet'),
-          subtitle: const Text('Cargar los GGUF descargados o importar un modelo'),
+          title: const Text('Biblioteca de modelos'),
+          subtitle: const Text('Instalados, ubicación, tamaño y compatibilidad'),
           trailing: const Icon(Icons.chevron_right),
           onTap: _busy ? null : () => Navigator.push<void>(context, MaterialPageRoute(
             builder: (context) => LocalModelsScreen(runtime: widget.runtime),
