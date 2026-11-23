@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'model_runtime.dart';
 import 'hugging_face_screen.dart';
+import 'local_models_screen.dart';
 
 class ModelsScreen extends StatefulWidget {
   const ModelsScreen({super.key, required this.runtime});
@@ -67,6 +68,15 @@ class _ModelsScreenState extends State<ModelsScreen> {
     body: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 760),
       child: ListView(padding: const EdgeInsets.all(24), children: [
         ListTile(
+          leading: const Icon(Icons.memory_outlined),
+          title: const Text('Ejecutar en esta tablet'),
+          subtitle: const Text('Cargar los GGUF descargados o importar un modelo'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: _busy ? null : () => Navigator.push<void>(context, MaterialPageRoute(
+            builder: (context) => LocalModelsScreen(runtime: widget.runtime),
+          )).then((_) { if (mounted) setState(() {}); }),
+        ),
+        ListTile(
           leading: const Icon(Icons.public),
           title: const Text('Hugging Face'),
           subtitle: const Text('Buscar modelos y descargar archivos GGUF'),
@@ -109,6 +119,7 @@ class _ModelsScreenState extends State<ModelsScreen> {
             leading: Radio<String>(
               value: model['name'] as String, groupValue: widget.runtime.model,
               onChanged: _busy ? null : (name) => _run(() async {
+                await widget.runtime.unloadLocal();
                 widget.runtime.model = name!;
                 await widget.runtime.save();
                 if (mounted) setState(() => _status = 'Modelo seleccionado: $name');
