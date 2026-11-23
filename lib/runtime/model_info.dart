@@ -89,7 +89,7 @@ class _GgufReader {
 
   Future<Uint8List> read(int count) async {
     final position = await file.position();
-    if (++operations > 200000 || count < 0 || count > 4000000 ||
+    if (++operations > 2000000 || count < 0 || count > 4000000 ||
         position + count > length || position + count > 32000000) {
       throw const FormatException('Límite de metadatos');
     }
@@ -111,7 +111,7 @@ class _GgufReader {
 
   Future<void> skip(int count) async {
     final next = await file.position() + count;
-    if (++operations > 200000 || count < 0 || next > length || next > 32000000) {
+    if (++operations > 2000000 || count < 0 || next > length || next > 32000000) {
       throw const FormatException('Límite de metadatos');
     }
     await file.setPosition(next);
