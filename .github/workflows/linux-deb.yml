@@ -43,19 +43,32 @@ jobs:
           flutter test
       - name: Build Linux application
         run: flutter build linux --release
-      - name: Build bundled CPU engine
+      - uses: actions/cache/restore@v4
+        id: engine-cache
+        with:
+          path: build/llama/bin/llama-server
+          key: llama-v1.0.0-debian12-baseline-v2
+      - name: Fetch pinned engine source and licenses
         run: |
           mkdir -p vendor
           git clone --depth 1 --branch v1.0.0 https://github.com/ggml-org/llama.cpp.git vendor/llama.cpp
           test "$(git -C vendor/llama.cpp rev-parse HEAD)" = b1b770d90d94cad9e9ea5b993bdbc383a522fb28
+      - name: Build bundled CPU engine
+        if: steps.engine-cache.outputs.cache-hit != 'true'
+        run: |
           cmake -S vendor/llama.cpp -B build/llama -G Ninja \
             -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DGGML_BACKEND_DL=OFF \
             -DGGML_NATIVE=OFF -DGGML_SSE42=OFF -DGGML_AVX=OFF -DGGML_AVX2=OFF \
             -DGGML_BMI2=OFF -DGGML_FMA=OFF -DGGML_F16C=OFF \
-            -DLLAMA_OPENSSL=OFF -DLLAMA_BUILD_UI=OFF -DLLAMA_BUILD_APP=OFF \
+            -DLLAMA_OPENSSL=OFF -DLLAMA_BUILD_UI=OFF -DLLAMA_USE_PREBUILT_UI=OFF -DLLAMA_BUILD_APP=OFF \
             -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF
           cmake --build build/llama --target llama-server -j2
           build/llama/bin/llama-server --version
+      - uses: actions/cache/save@v4
+        if: steps.engine-cache.outputs.cache-hit != 'true'
+        with:
+          path: build/llama/bin/llama-server
+          key: llama-v1.0.0-debian12-baseline-v2
       - name: Package and validate installation
         run: |
           bash packaging/linux/build-deb.sh

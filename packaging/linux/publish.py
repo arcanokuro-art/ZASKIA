@@ -33,6 +33,10 @@ except urllib.error.HTTPError as error:
         if conflict.code != 422:
             raise
         release = request(base + '/releases/tags/' + tag)
+body = release.get('body') or ''
+if 'Debian' not in body:
+    body += '\n\nLinux Debian 12+ amd64: paquete .deb con motor de texto GGUF por CPU incluido. Instalar con `sudo apt install ./ZASKIA-0.12.0-linux-amd64.deb`. Los modelos se descargan aparte.'
+    request(base + '/releases/' + str(release['id']), json.dumps({'body': body}).encode(), method='PATCH')
 for path in sorted(glob.glob('ZASKIA-*-linux-amd64.deb*')):
     name = os.path.basename(path)
     for asset in release.get('assets', []):
