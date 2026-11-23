@@ -54,10 +54,10 @@ class _ModelsScreenState extends State<ModelsScreen> {
     await showDialog<void>(context: context, builder: (context) => AlertDialog(
       title: Text(name),
       content: SingleChildScrollView(child: SelectableText(
-        'Capacidades: ${(data['capabilities'] as List? ?? []).join(', ')}\n\n'
-        'Familia: ${data['details']?['family'] ?? 'Sin especificar'}\n'
-        'Parámetros: ${data['details']?['parameter_size'] ?? 'Sin especificar'}\n'
-        'Cuantización: ${data['details']?['quantization_level'] ?? 'Sin especificar'}',
+        '${S.t('Capacidades')}: ${(data['capabilities'] as List? ?? []).join(', ')}\n\n'
+        '${S.t('Familia')}: ${data['details']?['family'] ?? S.t('Sin especificar')}\n'
+        '${S.t('Parámetros')}: ${data['details']?['parameter_size'] ?? S.t('Sin especificar')}\n'
+        '${S.t('Cuantización')}: ${data['details']?['quantization_level'] ?? S.t('Sin especificar')}',
       )),
       actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(S.t('Cerrar')))],
     ));
@@ -120,10 +120,11 @@ class _ModelsScreenState extends State<ModelsScreen> {
             leading: Radio<String>(
               value: model['name'] as String, groupValue: widget.runtime.model,
               onChanged: _busy ? null : (name) => _run(() async {
+                if(name==null)return;
                 await widget.runtime.unloadLocal();
-                widget.runtime.model = name!;
+                widget.runtime.model = name;
                 await widget.runtime.save();
-                if (mounted) setState(() => _status = S.f('Modelo seleccionado: {name}',{'name':name!}));
+                if (mounted) setState(() => _status = S.f('Modelo seleccionado: {name}',{'name':name}));
               })),
             trailing: PopupMenuButton<String>(
               enabled: !_busy,

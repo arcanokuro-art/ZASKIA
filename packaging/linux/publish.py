@@ -37,6 +37,9 @@ body = release.get('body') or ''
 if 'Debian' not in body:
     body += '\n\nLinux Debian 12+ amd64: paquete .deb con motor de texto GGUF por CPU incluido. Instalar con `sudo apt install ./ZASKIA-0.13.0-linux-amd64.deb`. Los modelos se descargan aparte.'
     request(base + '/releases/' + str(release['id']), json.dumps({'body': body}).encode(), method='PATCH')
+if 'Configuración modular' not in body:
+    body += '\n\nConfiguración modular: apariencia, perfiles, rendimiento, memoria, permisos, cola de descargas, respaldos, diagnóstico y actualizaciones. Español predeterminado; inglés, chino simplificado, coreano, japonés y francés disponibles.'
+    request(base + '/releases/' + str(release['id']), json.dumps({'body': body}).encode(), method='PATCH')
 for path in sorted(glob.glob('ZASKIA-*-linux-amd64.deb*')):
     name = os.path.basename(path)
     for asset in release.get('assets', []):

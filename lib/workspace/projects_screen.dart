@@ -41,7 +41,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
       final selected = items.where((item) => item.id == select).firstOrNull;
       if (selected?.locked == true && _active?.id != selected?.id && !await _authenticate()) return;
       if (create || (selected == null && !items.any((item) => !item.archived && !item.locked))) {
-        final project = await _store.create('Nuevo chat');
+        final project = await _store.create(S.t('Nuevo chat'));
         select = project.id;
         items = [project, ...items];
       }
@@ -169,7 +169,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
             context: context,
             builder: (context) => AlertDialog(
               title: Text(S.t('¿Eliminar conversación?')),
-              content: Text('Se borrarán «${project.name}» y sus archivos locales.'),
+              content: Text(S.f('Se borrarán «{name}» y sus archivos locales.',{'name':project.name})),
               actions: [
                 TextButton(onPressed: () => Navigator.pop(context, false), child: Text(S.t('Cancelar'))),
                 FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(S.t('Eliminar'))),

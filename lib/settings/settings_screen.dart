@@ -42,7 +42,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _run(Future<void> Function() action) async {
     if(_working)return;
     setState((){_working=true;_status='';});
-    try {await action();if(mounted)setState(()=>_status='Guardado');}
+    try {await action();widget.runtime.refreshRetention();if(mounted)setState(()=>_status='Guardado');}
     catch(e){await DiagnosticLog.record('settings',e);if(mounted)setState(()=>_status='No se pudo completar la operación.');}
     finally{if(mounted)setState(()=>_working=false);}
   }
@@ -83,8 +83,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     Slider(value:(s.snapshot[key] as num).toDouble().clamp(min,max).toDouble(),min:min,max:max,divisions:divisions,
       onChanged:_working?null:(v)=>_run(()=>s.set(key,['temperature','textScale'].contains(key)?v:v.round()))),
   ]);
-  Widget _action(String label,IconData icon,VoidCallback action,{String? subtitle})=>ListTile(
-    leading:Icon(icon),title:Text(S.t(label)),subtitle:subtitle==null?null:Text(S.t(subtitle)),
+  Widget _action(String label,IconData icon,VoidCallback action,{String? subtitle,bool translateSubtitle=true})=>ListTile(
+    leading:Icon(icon),title:Text(S.t(label)),subtitle:subtitle==null?null:Text(translateSubtitle?S.t(subtitle):subtitle),
     onTap:_working?null:action);
   Widget _section(String title,List<Widget> children,List<String> keys,{String tags=''}) {
     if(_query.isNotEmpty && !(S.t(title)+' '+tags).toLowerCase().contains(_query.toLowerCase()) &&
@@ -154,7 +154,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           trailing:IconButton(icon:const Icon(Icons.delete_outline),tooltip:S.t('Eliminar'),onPressed:_working?null:()=>_run(()=>s.set('customProfiles',s.get<List>('customProfiles').where((v)=>v!=raw).toList()))));}),
       ],['profile','customProfiles']),
       _section('Conversación',[
-        _action('Instrucciones predeterminadas',Icons.edit_outlined,()=>_edit('systemPrompt','Instrucciones predeterminadas'),subtitle:s.get<String>('systemPrompt').isEmpty?'Sin instrucciones adicionales':s.get<String>('systemPrompt')),
+        _action('Instrucciones predeterminadas',Icons.edit_outlined,()=>_edit('systemPrompt','Instrucciones predeterminadas'),subtitle:s.get<String>('systemPrompt').isEmpty?S.t('Sin instrucciones adicionales'):s.get<String>('systemPrompt'),translateSubtitle:false),
         _toggle('enterSends','Enter para enviar',help:'Shift+Enter inserta una línea. Ctrl+Enter siempre envía.'),
         _slider('maxTokens','Longitud máxima de respuesta',32,8192,255),
         if(_advanced)_slider('temperature','Temperatura',0,2,20),

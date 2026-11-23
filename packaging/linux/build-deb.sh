@@ -44,6 +44,7 @@ Priority: optional
 Architecture: amd64
 Maintainer: Zaskar Startup <zaskarstartup@users.noreply.github.com>
 Depends: $deps
+Recommends: fonts-noto-cjk
 Installed-Size: $(du -sk "$stage/usr" | cut -f1)
 Homepage: https://github.com/arcanokuro-art/ZASKIA
 Description: ZASKIA - ejecutor local de modelos de IA

@@ -557,7 +557,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               if (label != null)
-                Text(label, style: TextStyle(color: colors.primary)),
+                Text(S.t(label), style: TextStyle(color: colors.primary)),
               if (message.attachments.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 6),
@@ -617,7 +617,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               Padding(
                 padding: const EdgeInsets.only(left: 10),
                 child: InputChip(
-                  label: Text(_mode == _Mode.create ? 'Crear imagen' : 'Editar imagen'),
+                  label: Text(S.t(_mode == _Mode.create ? 'Crear imagen' : 'Editar imagen')),
                   onDeleted: () {
                     setState(() => _mode = _Mode.chat);
                     _save();

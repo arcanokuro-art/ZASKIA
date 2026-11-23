@@ -13,6 +13,7 @@ class ModelRuntime {
   static final _native = NativeTextEngine();
   static Timer? _idle;
   Future<void> releaseMemory() async { _idle?.cancel(); await _native.unload(); }
+  void refreshRetention() {if(useLocal && _native.loadedPath!=null)_armIdle();}
   void _armIdle() {
     _idle?.cancel();
     final minutes = _preferences.get<int>('idleMinutes');

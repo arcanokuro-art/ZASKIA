@@ -79,10 +79,10 @@ class _LocalModelsScreenState extends State<LocalModelsScreen> {
         child: SelectableText([
           '${S.t('Ubicación')}\n${info.path}',
           '${S.t('Tamaño')}\n${info.size} · ${info.bytes} bytes',
-          '${S.t('Formato')}\n${info.format}',
+          '${S.t('Formato')}\n${S.t(info.format)}',
           '${S.t('Capacidades')}\n${S.t(info.capabilities)}',
           '${S.t('Motor')}\n${S.t(info.engine)}',
-          for (final entry in info.metadata.entries) '${S.t(entry.key)}\n${entry.value}',
+          for (final entry in info.metadata.entries) '${S.t(entry.key)}\n${entry.key=='Lectura'?S.t(entry.value):entry.value}',
         ].join('\n\n')),
       )),
       actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(S.t('Cerrar')))],
@@ -96,13 +96,13 @@ class _LocalModelsScreenState extends State<LocalModelsScreen> {
     await showDialog<void>(context: context, builder: (context) => AlertDialog(
       title: Text(name),
       content: SingleChildScrollView(child: SelectableText([
-        '${S.t('Ubicación')}\nMotor Ollama: ${widget.runtime.address}\nLa API no informa la ruta física.',
+        '${S.t('Ubicación')}\nMotor Ollama: ${widget.runtime.address}\n${S.t('La API no informa la ruta física.')}',
         '${S.t('Tamaño')}\n${((model['size'] as num? ?? 0) / 1000000000).toStringAsFixed(2)} GB',
         '${S.t('Formato')}\n${info['details']?['format'] ?? 'No informado'}',
         '${S.t('Arquitectura')}\n${info['details']?['family'] ?? 'No informada'}',
         '${S.t('Cuantización')}\n${info['details']?['quantization_level'] ?? 'No informada'}',
         '${S.t('Capacidades')}\n${(info['capabilities'] as List? ?? []).join(', ')}',
-        '${S.t('Motor')}\nOllama conectado',
+        '${S.t('Motor')}\n${S.t('Ollama conectado')}',
       ].join('\n\n'))),
       actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(S.t('Cerrar')))],
     ));
