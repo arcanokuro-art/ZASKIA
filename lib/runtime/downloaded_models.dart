@@ -3,9 +3,14 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 
 class DownloadedModels {
+  DownloadedModels({this.directory});
+  final Directory? directory;
+
+  Future<Directory> _root() async => directory ?? Directory(
+    '${(await getApplicationSupportDirectory()).path}/huggingface',
+  );
   Future<List<File>> list() async {
-    final support = await getApplicationSupportDirectory();
-    final root = Directory('${support.path}/huggingface');
+    final root = await _root();
     if (!await root.exists()) return [];
     final files = <File>[];
     await for (final entry in root.list(recursive: true, followLinks: false)) {
@@ -29,9 +34,9 @@ class DownloadedModels {
     } finally {
       await input.close();
     }
-    final support = await getApplicationSupportDirectory();
-    final directory = await Directory('${support.path}/huggingface/imports').create(recursive: true);
-    final folder = await directory.createTemp('model-');
+    final root = await _root();
+    final imports = await Directory('${root.path}/imports').create(recursive: true);
+    final folder = await imports.createTemp('model-');
     final name = File(source).uri.pathSegments.last;
     final target = File('${folder.path}/$name');
     try {
