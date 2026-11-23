@@ -47,7 +47,7 @@ class _HuggingFaceScreenState extends State<HuggingFaceScreen> {
       })) as List;
       if (mounted) setState(() {
         _results = data.cast<Map<String, dynamic>>();
-        _status = '${data.length} resultados · catálogo de Hugging Face';
+        _status = S.f('{count} resultados · catálogo de Hugging Face',{'count':data.length});
       });
     } catch (_) {
       if (mounted) setState(() => _status = 'No se pudo consultar Hugging Face. Reintenta.');
@@ -136,7 +136,7 @@ class _HuggingFaceScreenState extends State<HuggingFaceScreen> {
         for (final model in _results)
           ListTile(
             title: Text(model['id'] as String),
-            subtitle: Text('${model['pipeline_tag'] ?? 'Modelo'} · ${model['downloads'] ?? 0} descargas'),
+            subtitle: Text('${model['pipeline_tag'] ?? 'Modelo'} · ${S.f('{count} descargas',{'count':model['downloads'] ?? 0})}'),
             trailing: Icon(Icons.chevron_right),
             onTap: _busy ? null : () => _files(model['id'] as String),
           ),

@@ -44,7 +44,7 @@ class _ModelsScreenState extends State<ModelsScreen> {
     await widget.runtime.save();
     if (mounted) setState(() {
       _models = models;
-      _status = 'Conectado · ${models.length} modelos instalados';
+      _status = S.f('Conectado · {count} modelos instalados',{'count':models.length});
     });
   }
 
@@ -123,7 +123,7 @@ class _ModelsScreenState extends State<ModelsScreen> {
                 await widget.runtime.unloadLocal();
                 widget.runtime.model = name!;
                 await widget.runtime.save();
-                if (mounted) setState(() => _status = 'Modelo seleccionado: $name');
+                if (mounted) setState(() => _status = S.f('Modelo seleccionado: {name}',{'name':name!}));
               })),
             trailing: PopupMenuButton<String>(
               enabled: !_busy,

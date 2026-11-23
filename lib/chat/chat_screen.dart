@@ -568,7 +568,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 ),
               if (message.text.isNotEmpty) SelectableText(message.text),
               if (message.note.isNotEmpty)
-                Padding(padding: const EdgeInsets.only(top: 8), child: Text('Nota: ${message.note}')),
+                Padding(padding: const EdgeInsets.only(top: 8), child: Text('${S.t('Nota')}: ${message.note}')),
             ]),
           ),
         ),
@@ -701,7 +701,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         if (_inProject && (_selectedReferences.isNotEmpty || _note.text.trim().isNotEmpty))
           Padding(
             padding: const EdgeInsets.only(top: 8, left: 8),
-            child: Text('${_selectedReferences.length} archivo(s) seleccionado(s)${_note.text.trim().isEmpty ? '' : ' · Nota incluida'}'),
+            child: Text('${S.f('{count} archivo(s) seleccionado(s)',{'count':_selectedReferences.length})}${_note.text.trim().isEmpty ? '' : ' · ${S.t('Nota incluida')}'}'),
           ),
         if (_saveFailed)
           TextButton(onPressed: _save, child: Text(S.t('No se guardó. Reintentar'))),

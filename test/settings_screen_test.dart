@@ -1,0 +1,41 @@
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
+import 'package:zaskia/settings/app_settings.dart';
+import 'package:zaskia/settings/settings_screen.dart';
+import 'package:zaskia/runtime/model_runtime.dart';
+
+class TestPaths extends PathProviderPlatform {
+  TestPaths(this.path);
+  final String path;
+  @override Future<String?> getApplicationSupportPath()async=>path;
+  @override Future<String?> getTemporaryPath()async=>path;
+}
+void main(){
+  testWidgets('settings start in Spanish and update labels live in each language', (tester)async{
+    final directory=(await tester.runAsync(()=>Directory.systemTemp.createTemp('zaskia-settings-ui-')))!;
+    final previous=PathProviderPlatform.instance;
+    PathProviderPlatform.instance=TestPaths(directory.path);
+    addTearDown(()async{
+      await tester.runAsync(()async{
+      await AppSettings.instance.update(AppSettings.defaults);
+      PathProviderPlatform.instance=previous;
+      await directory.delete(recursive:true);
+      });
+    });
+    await tester.pumpWidget(MaterialApp(home:SettingsScreen(runtime:ModelRuntime())));
+    expect(find.text('Configuración'),findsOneWidget);
+    for(final entry in {'en':'Settings','zh':'设置','ko':'설정','ja':'設定','fr':'Paramètres'}.entries){
+      await tester.runAsync(()=>AppSettings.instance.set('language',entry.key));
+      await tester.pump();
+      expect(find.text(entry.value),findsOneWidget);
+    }
+    await tester.runAsync(()=>AppSettings.instance.set('language','es'));
+    await tester.enterText(find.byType(TextField).first,'CPU');
+    await tester.pump();
+    expect(find.text('Rendimiento y energía'),findsOneWidget);
+    expect(find.text('Apariencia'),findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+}

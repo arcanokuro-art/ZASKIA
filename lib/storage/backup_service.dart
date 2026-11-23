@@ -79,6 +79,7 @@ class BackupService {
       final files = (payload['files'] as Map<String,dynamic>).map((k,v)=>MapEntry(k,base64Decode(v as String)));
       scratch = await (temporaryDirectory ?? await getTemporaryDirectory()).createTemp('zaskia-restore-');
       for (final entry in projects) {
+        if(entry['name'] is! String || entry['data'] is! Map)throw const FormatException('Invalid conversation');
         final p = await store.create(entry['name'] as String);
         created.add(p.id);
         final paths = <String,String>{};
@@ -87,6 +88,7 @@ class BackupService {
           final list = <dynamic>[];
           for(final raw in value as List? ?? []) {
             final item = Map<String,dynamic>.from(raw as Map);
+            if(item['name'] is! String || item['path'] is! String || item['image'] is! bool)throw const FormatException('Invalid attachment');
             final old = item['path'] as String;
             final content = files[old];
             if(content==null) continue;
@@ -105,7 +107,8 @@ class BackupService {
           (message as Map)['attachments']=await restoreItems(message['attachments']);
         }
         await store.save(Project(p.id,p.name,DateTime.now().millisecondsSinceEpoch,data,
-          options:Map<String,dynamic>.from(entry['options'] as Map? ?? {})));
+          options:{for(final o in Map<String,dynamic>.from(entry['options'] as Map? ?? {}).entries)
+            if((['pinned','archived','locked'].contains(o.key)&&o.value is bool)||(o.key=='folder'&&o.value is String))o.key:o.value}));
       }
       if(settings) {
         final saved = AppSettings.validate(Map<String,dynamic>.from(payload['settings'] as Map));

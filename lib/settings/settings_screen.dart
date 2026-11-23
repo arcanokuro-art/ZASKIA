@@ -162,7 +162,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _section('Rendimiento y energía',[
         Text(S.t('Los cambios de CPU y contexto se aplican al volver a cargar el modelo.')),
         _select('idleMinutes','Liberar modelo tras inactividad',{0:'Nunca',3:'3 min',10:'10 min',30:'30 min',60:'60 min'}),
-        _toggle('backgroundWork','Continuar al minimizar',help:'Depende de los límites del sistema operativo.'),
+        _toggle('backgroundWork','Continuar al minimizar',help:'Si se desactiva, minimizar detiene generación y descargas. El sistema puede limitar el trabajo en segundo plano.'),
         _action('Liberar memoria ahora',Icons.memory,()=>_run(widget.runtime.releaseMemory)),
         if(_advanced)...[_slider('threads','Hilos de CPU',1,64,63),_select('context','Tamaño del contexto',{512:'512',1024:'1024',2048:'2048',4096:'4096',8192:'8192',16384:'16384',32768:'32768'}),
           Text(S.t('Un contexto mayor consume más RAM.'))],

@@ -77,12 +77,12 @@ class _LocalModelsScreenState extends State<LocalModelsScreen> {
       title: Text(_library.name(file)),
       content: SizedBox(width: 560, child: SingleChildScrollView(
         child: SelectableText([
-          'Ubicación\n${info.path}',
-          'Tamaño\n${info.size} · ${info.bytes} bytes',
-          'Formato\n${info.format}',
-          'Capacidades\n${info.capabilities}',
-          'Motor\n${info.engine}',
-          for (final entry in info.metadata.entries) '${entry.key}\n${entry.value}',
+          '${S.t('Ubicación')}\n${info.path}',
+          '${S.t('Tamaño')}\n${info.size} · ${info.bytes} bytes',
+          '${S.t('Formato')}\n${info.format}',
+          '${S.t('Capacidades')}\n${S.t(info.capabilities)}',
+          '${S.t('Motor')}\n${S.t(info.engine)}',
+          for (final entry in info.metadata.entries) '${S.t(entry.key)}\n${entry.value}',
         ].join('\n\n')),
       )),
       actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(S.t('Cerrar')))],
@@ -96,13 +96,13 @@ class _LocalModelsScreenState extends State<LocalModelsScreen> {
     await showDialog<void>(context: context, builder: (context) => AlertDialog(
       title: Text(name),
       content: SingleChildScrollView(child: SelectableText([
-        'Ubicación\nMotor Ollama: ${widget.runtime.address}\nLa API no informa la ruta física.',
-        'Tamaño\n${((model['size'] as num? ?? 0) / 1000000000).toStringAsFixed(2)} GB',
-        'Formato\n${info['details']?['format'] ?? 'No informado'}',
-        'Arquitectura\n${info['details']?['family'] ?? 'No informada'}',
-        'Cuantización\n${info['details']?['quantization_level'] ?? 'No informada'}',
-        'Capacidades\n${(info['capabilities'] as List? ?? []).join(', ')}',
-        'Motor\nOllama conectado',
+        '${S.t('Ubicación')}\nMotor Ollama: ${widget.runtime.address}\nLa API no informa la ruta física.',
+        '${S.t('Tamaño')}\n${((model['size'] as num? ?? 0) / 1000000000).toStringAsFixed(2)} GB',
+        '${S.t('Formato')}\n${info['details']?['format'] ?? 'No informado'}',
+        '${S.t('Arquitectura')}\n${info['details']?['family'] ?? 'No informada'}',
+        '${S.t('Cuantización')}\n${info['details']?['quantization_level'] ?? 'No informada'}',
+        '${S.t('Capacidades')}\n${(info['capabilities'] as List? ?? []).join(', ')}',
+        '${S.t('Motor')}\nOllama conectado',
       ].join('\n\n'))),
       actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(S.t('Cerrar')))],
     ));
@@ -146,22 +146,22 @@ class _LocalModelsScreenState extends State<LocalModelsScreen> {
           onTap: () => _showDetails(file),
           title: Text(_library.name(file)),
           subtitle: Text([
-            '${_details[file.path]?.size ?? 'Tamaño pendiente'} · ${_details[file.path]?.format ?? 'GGUF'}',
-            !_library.singleFile(file) ? 'Modelo dividido: requiere todos sus componentes'
+            '${_details[file.path]?.size ?? S.t('Tamaño pendiente')} · ${_details[file.path]?.format ?? 'GGUF'}',
+            !_library.singleFile(file) ? S.t('Modelo dividido: requiere todos sus componentes')
               : widget.runtime.localPath == file.path && widget.runtime.useLocal
-                ? 'Seleccionado para el chat' : 'Disponible en el dispositivo',
-            _details[file.path]?.capabilities ?? 'Capacidades por comprobar',
+                ? S.t('Seleccionado para el chat') : S.t('Disponible en el dispositivo'),
+            S.t(_details[file.path]?.capabilities ?? 'Capacidades por comprobar'),
           ].join('\n')),
           trailing: FilledButton(
             onPressed: _busy || !_library.singleFile(file) ? null : () => _run(() async {
-              setState(() => _status = 'Cargando ${_library.name(file)}…');
+              setState(() => _status = S.f('Cargando {name}…',{'name':_library.name(file)}));
               await widget.runtime.selectLocal(file.path);
               if (mounted) setState(() => _status = 'Listo. Regresa al chat para conversar sin conexión.');
             }),
             child: Text(S.t('Cargar')),
           ),
         ),
-      if (_remoteStatus != null) ListTile(title: Text(_remoteStatus!)),
+      if (_remoteStatus != null) ListTile(title: Text(S.t(_remoteStatus!))),
       if (_remote.isNotEmpty) ...[
         Divider(),
         ListTile(title: Text(S.t('En el motor conectado')),
