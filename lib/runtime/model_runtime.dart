@@ -4,7 +4,29 @@ import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
 
+import 'native_text_engine.dart';
+
 class ModelRuntime {
+  static final _native = NativeTextEngine();
+  bool useLocal = false;
+  String localPath = '';
+  String get selectedName => useLocal ? File(localPath).uri.pathSegments.last : model;
+  bool get ready => useLocal ? localPath.isNotEmpty : model.isNotEmpty && address.isNotEmpty;
+
+  Future<void> selectLocal(String path) async {
+    await _native.load(path);
+    localPath = path;
+    useLocal = true;
+    await save();
+  }
+
+  Future<void> unloadLocal() async {
+    await _native.unload();
+    useLocal = false;
+    localPath = '';
+    await save();
+  }
+
   String address = '';
   String model = '';
   HttpClient? _generation;
@@ -17,6 +39,12 @@ class ModelRuntime {
     final file = await _settings();
     if (!await file.exists()) return;
     final data = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
+    useLocal = data['useLocal'] as bool? ?? false;
+    localPath = data['localPath'] as String? ?? '';
+    if (useLocal && !await File(localPath).exists()) {
+      useLocal = false;
+      localPath = '';
+    }
     address = data['address'] as String? ?? '';
     model = data['model'] as String? ?? '';
   }
@@ -33,7 +61,7 @@ class ModelRuntime {
   Future<void> save() async {
     final file = await _settings();
     final temporary = File('${file.path}.tmp');
-    await temporary.writeAsString(jsonEncode({'address': address, 'model': model}), flush: true);
+    await temporary.writeAsString(jsonEncode({'address': address, 'model': model, 'useLocal': useLocal, 'localPath': localPath}), flush: true);
     await temporary.rename(file.path);
   }
 
@@ -57,6 +85,11 @@ class ModelRuntime {
       ((await request('/api/tags'))['models'] as List? ?? []).cast<Map<String, dynamic>>();
 
   Stream<Map<String, dynamic>> stream(String endpoint, Map<String, dynamic> body) async* {
+    if (endpoint == '/api/chat' && useLocal) {
+      await _native.load(localPath);
+      yield* _native.chat((body['messages'] as List).cast<Map<String, dynamic>>());
+      return;
+    }
     final client = HttpClient()..connectionTimeout = const Duration(seconds: 10);
     _generation = client;
     try {
@@ -78,5 +111,8 @@ class ModelRuntime {
     }
   }
 
-  void stop() => _generation?.close(force: true);
+  void stop() {
+    _generation?.close(force: true);
+    if (useLocal) _native.stop();
+  }
 }
