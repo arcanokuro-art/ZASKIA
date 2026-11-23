@@ -27,7 +27,11 @@ class ModelStorage {
     for (final root in await roots()) {
       if (!await root.exists()) continue;
       await for (final f in root.list(recursive:true, followLinks:false)) {
-        if (f is File && f.path.endsWith('.part')) { await f.delete(); count++; }
+        if (f is! File)continue;
+        final relative=f.path.substring(root.path.length+1);
+        final managed=RegExp(r'^imports/model-[^/]+/[^/]+\.part$').hasMatch(relative) ||
+          RegExp(r'^[^/]+--[^/]+/[0-9a-fA-F]{40}/[^/]+\.gguf\.part$',caseSensitive:false).hasMatch(relative);
+        if (managed) { await f.delete(); count++; }
       }
     }
     return count;

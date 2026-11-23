@@ -6,6 +6,7 @@ import 'package:zaskia/settings/app_settings.dart';
 import 'package:zaskia/settings/settings_screen.dart';
 import 'package:zaskia/runtime/model_runtime.dart';
 import 'package:zaskia/runtime/downloaded_models.dart';
+import 'package:zaskia/storage/model_storage.dart';
 
 class TestPaths extends PathProviderPlatform {
   TestPaths(this.path);
@@ -45,6 +46,11 @@ void main(){
       await AppSettings.instance.update({'modelFolder':b.path,'modelFolders':[a.path,b.path]});
       final files=await DownloadedModels().list();
       expect(files.map((f)=>f.path),containsAll(['${a.path}/first.gguf','${b.path}/second.gguf']));
+      final partial=File('${b.path}/imports/model-test/model.gguf.part');
+      await partial.parent.create(recursive:true);await partial.writeAsString('partial');
+      final unrelated=await File('${b.path}/unrelated.part').writeAsString('keep');
+      expect(await ModelStorage.clearPartial(),1);
+      expect(await partial.exists(),false);expect(await unrelated.exists(),true);
     });
     await tester.pumpWidget(const SizedBox.shrink());
   });
