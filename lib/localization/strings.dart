@@ -346,7 +346,10 @@ class S {
     "Se guardan hasta 50 pruebas. La tabla muestra las 10 más recientes. No se guarda el texto generado ni la dirección del motor externo.": "Up to 50 tests are saved. The table shows the latest 10. Generated text and the external engine address are not stored.",
     "Externo": "External",
     "Las sugerencias son para el motor integrado de este dispositivo.": "Suggestions apply to this device’s built-in engine.",
-    "ABI": "ABI"
+    "ABI": "ABI",
+    "Estado de carga": "Load state",
+    "Preparado": "Prepared",
+    "Carga incluida": "Load included"
   },
   "zh": {
     "Configuración": "设置",
@@ -689,7 +692,10 @@ class S {
     "Se guardan hasta 50 pruebas. La tabla muestra las 10 más recientes. No se guarda el texto generado ni la dirección del motor externo.": "最多保存 50 次测试，表格显示最近 10 次。不保存生成文本和外部引擎地址。",
     "Externo": "外部",
     "Las sugerencias son para el motor integrado de este dispositivo.": "建议仅适用于此设备的内置引擎。",
-    "ABI": "ABI"
+    "ABI": "ABI",
+    "Estado de carga": "加载状态",
+    "Preparado": "已就绪",
+    "Carga incluida": "包含加载"
   },
   "ko": {
     "Configuración": "설정",
@@ -1032,7 +1038,10 @@ class S {
     "Se guardan hasta 50 pruebas. La tabla muestra las 10 más recientes. No se guarda el texto generado ni la dirección del motor externo.": "최대 50회 테스트를 저장하며 표에는 최근 10회를 표시합니다. 생성 텍스트와 외부 엔진 주소는 저장하지 않습니다.",
     "Externo": "외부",
     "Las sugerencias son para el motor integrado de este dispositivo.": "제안은 이 기기의 내장 엔진에 적용됩니다.",
-    "ABI": "ABI"
+    "ABI": "ABI",
+    "Estado de carga": "로드 상태",
+    "Preparado": "준비됨",
+    "Carga incluida": "로드 포함"
   },
   "ja": {
     "Configuración": "設定",
@@ -1375,7 +1384,10 @@ class S {
     "Se guardan hasta 50 pruebas. La tabla muestra las 10 más recientes. No se guarda el texto generado ni la dirección del motor externo.": "最大50件を保存し、表には最新10件を表示します。生成テキストや外部エンジンのアドレスは保存しません。",
     "Externo": "外部",
     "Las sugerencias son para el motor integrado de este dispositivo.": "推奨設定はこの端末の内蔵エンジン用です。",
-    "ABI": "ABI"
+    "ABI": "ABI",
+    "Estado de carga": "読み込み状態",
+    "Preparado": "準備済み",
+    "Carga incluida": "読み込みを含む"
   },
   "fr": {
     "Configuración": "Paramètres",
@@ -1718,7 +1730,10 @@ class S {
     "Se guardan hasta 50 pruebas. La tabla muestra las 10 más recientes. No se guarda el texto generado ni la dirección del motor externo.": "Jusqu’à 50 tests sont enregistrés. Le tableau affiche les 10 derniers. Le texte généré et l’adresse du moteur externe ne sont pas conservés.",
     "Externo": "Externe",
     "Las sugerencias son para el motor integrado de este dispositivo.": "Les suggestions concernent le moteur intégré de cet appareil.",
-    "ABI": "ABI"
+    "ABI": "ABI",
+    "Estado de carga": "État de chargement",
+    "Preparado": "Prêt",
+    "Carga incluida": "Chargement inclus"
   }
 };
 }

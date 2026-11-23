@@ -162,7 +162,7 @@ class _HardwareScreenState extends State<HardwareScreen> with WidgetsBindingObse
             if(_results.isEmpty)Text(S.t('Todavía no hay resultados.')),
             if(_results.isNotEmpty)SingleChildScrollView(scrollDirection:Axis.horizontal,child:DataTable(
               dataRowMinHeight:56,dataRowMaxHeight:96,
-              columns:[for(final label in ['Modelo','Equipo','CPU / contexto','Primera respuesta (s)','Total (s)','Caracteres/s','Tokens/s total'])DataColumn(label:Text(S.t(label)))],
+              columns:[for(final label in ['Modelo','Equipo','CPU / contexto','Estado de carga','Primera respuesta (s)','Total (s)','Caracteres/s','Tokens/s total'])DataColumn(label:Text(S.t(label)))],
               rows:[for(final result in _results.take(10))_resultRow(result)],
             )),
             Text(S.t('Compara el mismo modelo, protocolo, contexto y estado de carga. Los resultados externos incluyen latencia de red.')),
@@ -184,6 +184,7 @@ class _HardwareScreenState extends State<HardwareScreen> with WidgetsBindingObse
       DataCell(SizedBox(width:180,child:Text(engine['model']?.toString()??'—',maxLines:2,overflow:TextOverflow.ellipsis))),
       DataCell(SizedBox(width:200,child:Text('${hardware['processor']??hardware['architecture']??'—'}\n${hardware['os']??''}${engine['location']=='external'?' · ${S.t('Externo')}':''}',maxLines:2,overflow:TextOverflow.ellipsis))),
       DataCell(Text('${config['threads']??'—'} / ${config['context']??'—'}')),
+      DataCell(Text(S.t(d['initialLoadState']=='prepared'?'Preparado':d['initialLoadState']=='load-required'?'Carga incluida':'Externo'))),
       DataCell(Text(_number(d['firstTextSeconds']))),DataCell(Text(_number(d['totalSeconds']))),
       DataCell(Text(_number(d['charactersPerSecond']))),DataCell(Text(_number(d['endToEndTokensPerSecond']))),
     ]);

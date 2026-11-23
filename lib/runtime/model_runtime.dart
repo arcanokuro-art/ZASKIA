@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'native_text_engine.dart';
 import '../settings/app_settings.dart';
 import '../hardware/hardware_snapshot.dart';
+import '../diagnostics/diagnostic_log.dart';
 
 class ModelRuntime {
   ModelRuntime({AppSettings? settings}):_preferences=settings ?? AppSettings.instance;
@@ -177,6 +178,6 @@ class ModelRuntime {
   void stop() {
     _generation?.close(force: true);
     _cancelLocal = true;
-    if (useLocal) _native.stop();
+    if (useLocal) _native.stop().catchError((Object e)async {await DiagnosticLog.record('native-stop',e);});
   }
 }

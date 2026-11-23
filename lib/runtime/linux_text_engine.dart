@@ -60,7 +60,7 @@ class LinuxTextEngine {
       process.stdout.listen(log);
       process.stderr.listen(log);
       unawaited(process.exitCode.then((code) {
-        if (identical(_process, process)) { _exitCode = code; loadedPath = null; }
+        if (identical(_process, process)) { _exitCode = code; loadedPath = null; cpuBackend=null; }
       }));
       final deadline = DateTime.now().add(const Duration(minutes: 5));
       while (DateTime.now().isBefore(deadline)) {
@@ -99,7 +99,7 @@ class LinuxTextEngine {
     stop();
     final process = _process;
     _process = null;
-    loadedPath = null;
+    loadedPath = null;cpuBackend=null;
     if (process == null) return;
     process.kill();
     try {
