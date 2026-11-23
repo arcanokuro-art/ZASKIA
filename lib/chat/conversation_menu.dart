@@ -1,3 +1,4 @@
+import '../localization/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 
@@ -14,7 +15,7 @@ class ConversationMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => PopupMenuButton<ConversationAction>(
-    tooltip: 'Acciones del chat',
+    tooltip: S.t('Acciones del chat'),
     onSelected: onAction,
     itemBuilder: (context) {
       final danger = Theme.of(context).brightness == Brightness.dark
@@ -24,10 +25,10 @@ class ConversationMenu extends StatelessWidget {
         _item(ConversationAction.pin, Icons.push_pin_outlined, project.pinned ? 'Desfijar' : 'Fijar'),
         if (defaultTargetPlatform == TargetPlatform.android)
           _item(ConversationAction.lock, Icons.lock_outline, project.locked ? 'Quitar bloqueo' : 'Bloquear chat'),
-        const PopupMenuDivider(),
+        PopupMenuDivider(),
         _item(ConversationAction.archive, Icons.archive_outlined, project.archived ? 'Desarchivar' : 'Archivar'),
         _item(ConversationAction.remove, Icons.delete_outline, 'Eliminar', color: danger),
-        const PopupMenuDivider(),
+        PopupMenuDivider(),
         _item(ConversationAction.move, Icons.drive_file_move_outline, 'Mover a un proyecto'),
         if (project.folder != null)
           _item(ConversationAction.ungroup, Icons.folder_off_outlined, 'Quitar del proyecto'),
@@ -41,8 +42,8 @@ class ConversationMenu extends StatelessWidget {
     value: action,
     child: Row(children: [
       Icon(icon, size: 20, color: color),
-      const SizedBox(width: 12),
-      Text(title, style: TextStyle(color: color)),
+      SizedBox(width: 12),
+      Text(S.t(title), style: TextStyle(color: color)),
     ]),
   );
 }

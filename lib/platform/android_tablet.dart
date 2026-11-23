@@ -15,7 +15,7 @@ class AndroidTablet extends StatelessWidget {
       return child;
     }
 
-    return const Scaffold(
+    return Scaffold(
       body: SafeArea(
         child: Center(
           child: Padding(

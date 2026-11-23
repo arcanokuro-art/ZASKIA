@@ -1,3 +1,4 @@
+import '../localization/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:local_auth/local_auth.dart';
@@ -6,6 +7,7 @@ import '../chat/conversation_menu.dart';
 
 import '../chat/chat_screen.dart';
 import 'project_store.dart';
+import '../settings/app_settings.dart';
 
 class ProjectsScreen extends StatefulWidget {
   const ProjectsScreen({super.key});
@@ -24,7 +26,8 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    final s = AppSettings.instance;
+    _load(select:s.get<String>('lastProject'),create:s.get<String>('startup')=='new');
   }
 
   Future<void> _load({String? select, bool create = false}) async {
@@ -42,7 +45,9 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
         select = project.id;
         items = [project, ...items];
       }
+      if (selected == null && select != null) select = null;
       final active = items.firstWhere((item) => item.id == select, orElse: () => items.firstWhere((item) => !item.archived && !item.locked));
+      await AppSettings.instance.set('lastProject',active.id);
       if (mounted) setState(() {
         _projects = [...items.where((item) => item.pinned), ...items.where((item) => !item.pinned)];
         _active = active;
@@ -60,21 +65,21 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     final next = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Renombrar conversación'),
+        title: Text(S.t('Renombrar conversación')),
         content: TextFormField(
           initialValue: name,
           maxLength: 80,
           autofocus: true,
-          decoration: const InputDecoration(labelText: 'Nombre'),
+          decoration: InputDecoration(labelText: S.t('Nombre')),
           onChanged: (value) => name = value,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(S.t('Cancelar'))),
           FilledButton(
             onPressed: () {
               if (name.trim().isNotEmpty) Navigator.pop(context, name.trim());
             },
-            child: const Text('Guardar'),
+            child: Text(S.t('Guardar')),
           ),
         ],
       ),
@@ -90,8 +95,8 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
 
   Future<bool> _authenticate() async {
     if (defaultTargetPlatform != TargetPlatform.android) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('El bloqueo de chats requiere autenticación de Android. No está disponible en Linux.'),
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(S.t('El bloqueo de chats requiere autenticación de Android. No está disponible en Linux.')),
       ));
       return false;
     }
@@ -101,8 +106,8 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
       );
     } on Exception {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Configura el bloqueo de pantalla de Android para usar esta opción.'),
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(S.t('Configura el bloqueo de pantalla de Android para usar esta opción.')),
         ));
       }
       return false;
@@ -115,7 +120,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     return showDialog<String>(
       context: context,
       builder: (context) => SimpleDialog(
-        title: const Text('Mover a un proyecto'),
+        title: Text(S.t('Mover a un proyecto')),
         children: [
           for (final folder in folders)
             SimpleDialogOption(
@@ -126,7 +131,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
             padding: const EdgeInsets.all(16),
             child: TextField(
               maxLength: 80,
-              decoration: const InputDecoration(labelText: 'Nombre del nuevo proyecto'),
+              decoration: InputDecoration(labelText: S.t('Nombre del nuevo proyecto')),
               onChanged: (value) => name = value.trim(),
             ),
           ),
@@ -134,7 +139,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
             onPressed: () {
               if (name.isNotEmpty) Navigator.pop(context, name);
             },
-            child: const Text('Crear y mover'),
+            child: Text(S.t('Crear y mover')),
           ),
         ],
       ),
@@ -164,11 +169,11 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
           final confirmed = await showDialog<bool>(
             context: context,
             builder: (context) => AlertDialog(
-              title: const Text('¿Eliminar conversación?'),
+              title: Text(S.t('¿Eliminar conversación?')),
               content: Text('Se borrarán «${project.name}» y sus archivos locales.'),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-                FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Eliminar')),
+                TextButton(onPressed: () => Navigator.pop(context, false), child: Text(S.t('Cancelar'))),
+                FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(S.t('Eliminar'))),
               ],
             ),
           );
@@ -185,7 +190,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
       if (mounted) await _load(select: destination);
     } on Exception {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se pudo completar la acción.')),
+        SnackBar(content: Text(S.t('No se pudo completar la acción.'))),
       );
     }
   }
@@ -196,10 +201,10 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     if (_error != null || active == null) {
       return Scaffold(body: Center(
         child: _error == null
-          ? const CircularProgressIndicator()
+          ? CircularProgressIndicator()
           : Column(mainAxisSize: MainAxisSize.min, children: [
-              Text(_error!),
-              TextButton(onPressed: _load, child: const Text('Reintentar')),
+              Text(S.t(_error!)),
+              TextButton(onPressed: _load, child: Text(S.t('Reintentar'))),
             ]),
       ));
     }

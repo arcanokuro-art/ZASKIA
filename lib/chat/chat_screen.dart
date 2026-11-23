@@ -1,5 +1,11 @@
+import '../localization/strings.dart';
 import 'dart:io';
 import 'dart:convert';
+import 'package:flutter/services.dart';
+import '../settings/app_settings.dart';
+import '../storage/download_manager.dart';
+import '../settings/settings_screen.dart';
+import '../diagnostics/diagnostic_log.dart';
 
 import '../runtime/model_runtime.dart';
 import '../runtime/models_screen.dart';
@@ -18,7 +24,7 @@ enum _Mode { chat, create, edit }
 enum _Action { camera, photos, files, create, edit }
 
 class _Attachment {
-  const _Attachment(this.name, this.path, {this.image = false});
+  _Attachment(this.name, this.path, {this.image = false});
 
   final String name;
   final String path;
@@ -73,7 +79,7 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final _composer = TextEditingController();
   final _note = TextEditingController();
   final _references = <ProjectReference>[];
@@ -93,6 +99,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     final data = widget.project?.data ?? {};
     _composer.text = data['draft'] as String? ?? '';
     _note.text = data['note'] as String? ?? '';
@@ -106,11 +113,20 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _runtime.stop();
     _composer.dispose();
     _note.dispose();
     _focus.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if((state==AppLifecycleState.paused || state==AppLifecycleState.hidden) && !AppSettings.instance.get<bool>('backgroundWork')) {
+      DownloadManager.instance.cancelAll();
+      _runtime.suspend().catchError((Object e)=>DiagnosticLog.record('suspend',e));
+    }
   }
 
   Iterable<T> _restore<T>(Object? value, T Function(Map<String, dynamic>) decode) =>
@@ -146,7 +162,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _addReferences() async {
-    if (_picking) return;
+    if (_picking || !AppSettings.instance.get<bool>('allowAttachments')) return;
     setState(() => _picking = true);
     try {
       final result = await FilePicker.platform.pickFiles(allowMultiple: true);
@@ -209,11 +225,11 @@ class _ChatScreenState extends State<ChatScreen> {
   void _notice(String message) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+      ..showSnackBar(SnackBar(content: Text(S.t(message))));
   }
 
   Future<void> _pick(_Action action) async {
-    if (_picking) return;
+    if (_picking || !AppSettings.instance.get<bool>('allowAttachments')) return;
     setState(() => _picking = true);
     try {
       final List<_Attachment> selected;
@@ -315,14 +331,20 @@ class _ChatScreenState extends State<ChatScreen> {
     if (!_runtime.ready || !mounted) return;
     setState(() => _generating = true);
     try {
+      final settings = AppSettings.instance;
       final history = <Map<String, String>>[];
+      final system = StringBuffer(settings.get<String>('systemPrompt'));
+      if(settings.get<bool>('remember') && settings.get<String>('memory').isNotEmpty) system.writeln('\nUser-provided memory: ${settings.get<String>('memory')}');
+      final language = settings.get<String>('responseLanguage');
+      if(language!='auto')system.writeln('\nRespond in: $language');
+      if(system.isNotEmpty) history.add({'role':'system','content':system.toString()});
       for (final turn in _messages.reversed.take(6).toList().reversed) {
         history.add({'role': 'user', 'content': turn.text});
         if (turn.answer.isNotEmpty) history.add({'role': 'assistant', 'content': turn.answer});
       }
       final material = StringBuffer();
       if (message.note.isNotEmpty) material.writeln('Nota del proyecto: ${message.note}');
-      for (final item in attachments) {
+      for (final item in settings.get<bool>('allowAttachments') ? attachments : <_Attachment>[]) {
         if (!item.image && RegExp(r'\.(txt|md|csv|json|dart|py)$', caseSensitive: false).hasMatch(item.name)) {
           final file = await File(item.path).open();
           try {
@@ -343,6 +365,7 @@ class _ChatScreenState extends State<ChatScreen> {
         setState(() => message.answer += token);
       }
     } catch (error) {
+      await DiagnosticLog.record('generation',error);
       if (mounted) _notice('La generación terminó. Revisa la conexión si no recibiste respuesta.');
     } finally {
       if (mounted) {
@@ -355,6 +378,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _loadRuntime() async {
     try {
       await _runtime.load();
+      if(AppSettings.instance.get<bool>('autoLoad')) await _runtime.preload();
       if (mounted) setState(() {});
     } on Exception {
       if (mounted) _notice('Configura el motor desde Modelos locales.');
@@ -372,13 +396,13 @@ class _ChatScreenState extends State<ChatScreen> {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('¿Iniciar un chat nuevo?'),
-          content: const Text('La conversación actual y el borrador se borrarán.'),
+          title: Text(S.t('¿Iniciar un chat nuevo?')),
+          content: Text(S.t('La conversación actual y el borrador se borrarán.')),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancelar')),
+              child: Text(S.t('Cancelar'))),
             FilledButton(onPressed: () => Navigator.pop(context, true),
-              child: const Text('Nuevo chat')),
+              child: Text(S.t('Nuevo chat'))),
           ],
         ),
       );
@@ -404,25 +428,9 @@ class _ChatScreenState extends State<ChatScreen> {
       )).then((_) { if (mounted) setState(() {}); });
       return;
     }
-    Navigator.push<void>(context, MaterialPageRoute(
-      builder: (context) => Scaffold(
-        appBar: AppBar(title: Text(title)),
-        body: ListView(children: [
-          if (title == 'Modelos locales')
-            const ListTile(
-              leading: Icon(Icons.memory_outlined),
-              title: Text('Modelo local sin configurar'),
-              subtitle: Text('La gestión de modelos se habilitará al integrar los motores de IA.'),
-            )
-          else
-            const ListTile(
-              leading: Icon(Icons.system_update_alt),
-              title: Text('ZASKIA 0.11.0'),
-              subtitle: Text('Actualizaciones mediante APK firmada de GitHub Releases.'),
-            ),
-        ]),
-      ),
-    ));
+    Navigator.push<bool>(context, MaterialPageRoute(
+      builder: (context) => SettingsScreen(runtime:_runtime),
+    )).then((changed) {if(mounted){setState((){});if(changed==true)widget.onNewConversation?.call();}});
   }
 
   Widget _navigation({required bool temporary}) => ChatNavigation(
@@ -460,36 +468,36 @@ class _ChatScreenState extends State<ChatScreen> {
       leading: wide && _inProject ? IconButton(
         tooltip: _sidebarOpen ? 'Ocultar panel lateral' : 'Mostrar panel lateral',
         onPressed: () => setState(() => _sidebarOpen = !_sidebarOpen),
-        icon: const Icon(Icons.view_sidebar_outlined),
+        icon: Icon(Icons.view_sidebar_outlined),
       ) : wide ? null : Builder(builder: (context) => IconButton(
-        tooltip: 'Abrir menú',
+        tooltip: S.t('Abrir menú'),
         onPressed: () => Scaffold.of(context).openDrawer(),
-        icon: const Icon(Icons.menu_rounded),
+        icon: Icon(Icons.menu_rounded),
       )),
       automaticallyImplyLeading: !_inProject,
-      title: const Text('ZASKIA', style: TextStyle(
+      title: Text(S.t('ZASKIA'), style: TextStyle(
         fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: 0.6,
       )),
       actions: [
         if (_inProject)
           Builder(builder: (context) => IconButton(
-            tooltip: 'Referencias',
+            tooltip: S.t('Referencias'),
             onPressed: () => Scaffold.of(context).openEndDrawer(),
-            icon: const Icon(Icons.collections_bookmark_outlined),
+            icon: Icon(Icons.collections_bookmark_outlined),
           )),
         IconButton(
-          tooltip: 'Nuevo chat',
+          tooltip: S.t('Nuevo chat'),
           onPressed: _picking ? null : _newChat,
           icon: Icon(Icons.add_comment_outlined,
             color: Theme.of(context).colorScheme.primary),
         ),
-        const SizedBox(width: 8),
+        SizedBox(width: 8),
       ],
     ),
     body: SafeArea(
       child: Row(children: [
         SizedBox(
-          width: wide && _sidebarOpen ? 248 : 0,
+          width: wide && _sidebarOpen ? (AppSettings.instance.get<bool>('compact') ? 210 : 248) : 0,
           child: wide && _sidebarOpen ? _navigation(temporary: false) : null,
         ),
         Expanded(child: Center(
@@ -498,13 +506,13 @@ class _ChatScreenState extends State<ChatScreen> {
           child: Column(children: [
             Expanded(
               child: _messages.isEmpty
-                ? const Center(
+                ? Center(
                     child: SingleChildScrollView(
                       padding: EdgeInsets.all(16),
                       child: Column(mainAxisSize: MainAxisSize.min, children: [
                         _Mark(size: 42),
                         SizedBox(height: 12),
-                        Text('¿En qué te ayudo?', textAlign: TextAlign.center,
+                        Text(S.t('¿En qué te ayudo?'), textAlign: TextAlign.center,
                           style: TextStyle(fontSize: 26, fontWeight: FontWeight.w600)),
                       ]),
                     ),
@@ -540,7 +548,7 @@ class _ChatScreenState extends State<ChatScreen> {
         Align(
           alignment: Alignment.centerRight,
           child: Container(
-            constraints: const BoxConstraints(maxWidth: 480),
+            constraints: BoxConstraints(maxWidth: 480),
             margin: const EdgeInsets.only(left: 36),
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
@@ -564,11 +572,11 @@ class _ChatScreenState extends State<ChatScreen> {
             ]),
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         Align(
           alignment: Alignment.centerLeft,
           child: message.answer.isNotEmpty ? SelectableText(message.answer) : Text(
-            _generating && identical(message, _messages.last) ? 'Generando…' : !_runtime.ready ? 'Modelo local sin configurar' : 'Sin respuesta',
+            _generating && identical(message, _messages.last) ? S.t('Generando…') : !_runtime.ready ? S.t('Modelo local sin configurar') : S.t('Sin respuesta'),
             style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13)),
         ),
       ]),
@@ -588,13 +596,13 @@ class _ChatScreenState extends State<ChatScreen> {
         if (_messages.isEmpty && _mode == _Mode.chat)
           Wrap(alignment: WrapAlignment.center, spacing: 8, children: [
             ActionChip(
-              avatar: const Icon(Icons.image_outlined, size: 18),
-              label: const Text('Crear imagen'),
+              avatar: Icon(Icons.image_outlined, size: 18),
+              label: Text(S.t('Crear imagen')),
               onPressed: _picking ? null : () => _setMode(_Mode.create),
             ),
             ActionChip(
-              avatar: const Icon(Icons.edit_outlined, size: 18),
-              label: const Text('Editar imagen'),
+              avatar: Icon(Icons.edit_outlined, size: 18),
+              label: Text(S.t('Editar imagen')),
               onPressed: _picking ? null : () => _setMode(_Mode.edit),
             ),
           ]),
@@ -623,7 +631,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   scrollDirection: Axis.horizontal,
                   itemCount: _attachments.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  separatorBuilder: (_, __) => SizedBox(width: 8),
                   itemBuilder: (context, index) => _AttachmentTile(
                     attachment: _attachments[index],
                     onRemove: () {
@@ -635,10 +643,10 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
               PopupMenuButton<_Action>(
-                tooltip: 'Adjuntar o elegir herramienta',
-                enabled: !_picking,
-                offset: const Offset(0, -48),
-                icon: const Icon(Icons.add),
+                tooltip: S.t('Adjuntar o elegir herramienta'),
+                enabled: !_picking && AppSettings.instance.get<bool>('allowAttachments'),
+                offset: Offset(0, -48),
+                icon: Icon(Icons.add),
                 onSelected: _handleAction,
                 itemBuilder: (context) => [
                   for (final option in [
@@ -653,13 +661,20 @@ class _ChatScreenState extends State<ChatScreen> {
                       value: option.$1,
                       child: Row(children: [
                         Icon(option.$2, size: 20),
-                        const SizedBox(width: 12),
-                        Text(option.$3),
+                        SizedBox(width: 12),
+                        Text(S.t(option.$3)),
                       ]),
                     ),
                 ],
               ),
-              Expanded(child: TextField(
+              Expanded(child: Focus(
+                onKeyEvent:(node,event){
+                  if(event is KeyDownEvent && event.logicalKey==LogicalKeyboardKey.enter && !HardwareKeyboard.instance.isShiftPressed &&
+                    (AppSettings.instance.get<bool>('enterSends')||HardwareKeyboard.instance.isControlPressed)) {
+                    if(_canSend)_send();return KeyEventResult.handled;
+                  }
+                  return KeyEventResult.ignored;
+                },child:TextField(
                 controller: _composer,
                 onChanged: (_) => _save(),
                 focusNode: _focus,
@@ -667,15 +682,15 @@ class _ChatScreenState extends State<ChatScreen> {
                 maxLines: 4,
                 textCapitalization: TextCapitalization.sentences,
                 decoration: InputDecoration(
-                  hintText: hint,
+                  hintText: S.t(hint),
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-              )),
+              ))),
               ValueListenableBuilder<TextEditingValue>(
                 valueListenable: _composer,
                 builder: (context, value, child) => IconButton.filled(
-                  tooltip: _generating ? 'Detener' : 'Enviar',
+                  tooltip: S.t(_generating ? 'Detener' : 'Enviar'),
                   onPressed: _generating ? _runtime.stop : _canSend ? _send : null,
                   icon: Icon(_generating ? Icons.stop_rounded : Icons.arrow_upward_rounded),
                 ),
@@ -689,11 +704,11 @@ class _ChatScreenState extends State<ChatScreen> {
             child: Text('${_selectedReferences.length} archivo(s) seleccionado(s)${_note.text.trim().isEmpty ? '' : ' · Nota incluida'}'),
           ),
         if (_saveFailed)
-          TextButton(onPressed: _save, child: const Text('No se guardó. Reintentar')),
+          TextButton(onPressed: _save, child: Text(S.t('No se guardó. Reintentar'))),
         if (_messages.isEmpty)
           Padding(
             padding: const EdgeInsets.only(left: 8, top: 8),
-            child: Text(_runtime.ready ? _runtime.selectedName : 'Modelo local sin configurar',
+            child: Text(_runtime.ready ? _runtime.selectedName : S.t('Modelo local sin configurar'),
               style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12)),
           ),
       ]),
@@ -707,7 +722,7 @@ class _Mark extends StatelessWidget {
   final double size;
 
   @override
-  Widget build(BuildContext context) => Text('Z', style: TextStyle(
+  Widget build(BuildContext context) => Text(S.t('Z'), style: TextStyle(
     fontSize: size,
     fontWeight: FontWeight.w900,
     fontStyle: FontStyle.italic,
@@ -731,10 +746,10 @@ class _AttachmentTile extends StatelessWidget {
       padding: const EdgeInsets.all(8),
       color: colors.surface,
       child: Row(children: [
-        const Icon(Icons.insert_drive_file_outlined, size: 18),
-        const SizedBox(width: 5),
+        Icon(Icons.insert_drive_file_outlined, size: 18),
+        SizedBox(width: 5),
         Expanded(child: Text(attachment.name, maxLines: 2,
-          overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11))),
+          overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11))),
       ]),
     );
     return ClipRRect(
@@ -749,12 +764,12 @@ class _AttachmentTile extends StatelessWidget {
           fallback,
         if (onRemove != null)
           Positioned(top: 0, right: 0, child: IconButton(
-            tooltip: 'Quitar adjunto',
+            tooltip: S.t('Quitar adjunto'),
             style: IconButton.styleFrom(
               backgroundColor: Colors.black87, foregroundColor: Colors.white,
             ),
             onPressed: onRemove,
-            icon: const Icon(Icons.close, size: 16),
+            icon: Icon(Icons.close, size: 16),
           )),
       ]),
     );

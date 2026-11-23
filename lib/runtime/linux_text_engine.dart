@@ -19,7 +19,7 @@ class LinuxTextEngine {
   bool _busy = false;
   bool _loading = false;
 
-  Future<void> load(String path) async {
+  Future<void> load(String path, {int threads = 4,int contextSize = 2048}) async {
     if (_loading || _busy) throw StateError('Espera a que termine el motor.');
     if (loadedPath == path && _process != null && _exitCode == null) return;
     final file = await File(path).open();
@@ -44,8 +44,8 @@ class LinuxTextEngine {
       _diagnostic = '';
       final process = await Process.start(_executable, [
         '--model', path, '--host', '127.0.0.1', '--port', '$_port',
-        '--ctx-size', '2048', '--parallel', '1', '--n-gpu-layers', '0',
-        '--threads', '${max(1, min(4, Platform.numberOfProcessors))}',
+        '--ctx-size', '$contextSize', '--parallel', '1', '--n-gpu-layers', '0',
+        '--threads', '${max(1, min(threads, Platform.numberOfProcessors))}',
         '--no-webui',
       ], environment: {'LLAMA_API_KEY': _key});
       _process = process;
@@ -105,7 +105,7 @@ class LinuxTextEngine {
     }
   }
 
-  Stream<Map<String, dynamic>> chat(List<Map<String, dynamic>> messages) async* {
+  Stream<Map<String, dynamic>> chat(List<Map<String, dynamic>> messages,{int maxTokens = 512,double temperature = 0.7}) async* {
     if (_busy || _loading) throw StateError('El motor está ocupado.');
     if (loadedPath == null || _exitCode != null) throw StateError('Carga un modelo local primero.');
     _busy = true;
@@ -116,7 +116,7 @@ class LinuxTextEngine {
       final request = await client.postUrl(Uri.parse('http://127.0.0.1:$_port/v1/chat/completions'));
       request.headers.contentType = ContentType.json;
       request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $_key');
-      request.write(jsonEncode({'messages': messages, 'stream': true, 'max_tokens': 512}));
+      request.write(jsonEncode({'messages': messages, 'stream': true, 'max_tokens': maxTokens,'temperature':temperature}));
       final response = await request.close().timeout(const Duration(minutes: 3));
       if (response.statusCode != 200) {
         final error = await utf8.decoder.bind(response).join().timeout(const Duration(seconds: 10));

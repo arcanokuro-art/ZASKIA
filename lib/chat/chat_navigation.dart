@@ -1,3 +1,4 @@
+import '../localization/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../workspace/project_store.dart';
@@ -32,17 +33,17 @@ class ChatNavigation extends StatelessWidget {
           children: [
             TextButton.icon(
               onPressed: onNewChat,
-              icon: const Icon(Icons.add_comment_outlined),
-              label: const Text('Nuevo chat'),
+              icon: Icon(Icons.add_comment_outlined),
+              label: Text(S.t('Nuevo chat')),
               style: TextButton.styleFrom(
                 alignment: Alignment.centerLeft,
-                minimumSize: const Size(0, 48),
+                minimumSize: Size(0, 48),
               ),
             ),
             if (projects.isNotEmpty) ...[
-              const Padding(
+              Padding(
                 padding: EdgeInsets.fromLTRB(12, 18, 12, 6),
-                child: Text('Conversaciones'),
+                child: Text(S.t('Conversaciones')),
               ),
               for (final project in projects.where((item) => !item.archived && item.folder == null))
                 _conversation(context, project),
@@ -50,7 +51,7 @@ class ChatNavigation extends StatelessWidget {
                   .map((item) => item.folder).nonNulls.toSet())
                 ExpansionTile(
                   key: PageStorageKey(folder),
-                  leading: const Icon(Icons.folder_outlined),
+                  leading: Icon(Icons.folder_outlined),
                   title: Text(folder),
                   initiallyExpanded: projects.any((item) => item.id == activeId && item.folder == folder),
                   children: [
@@ -60,23 +61,23 @@ class ChatNavigation extends StatelessWidget {
                 ),
               if (projects.any((item) => item.archived))
                 ExpansionTile(
-                  leading: const Icon(Icons.archive_outlined),
-                  title: const Text('Archivados'),
+                  leading: Icon(Icons.archive_outlined),
+                  title: Text(S.t('Archivados')),
                   children: [
                     for (final project in projects.where((item) => item.archived))
                       _conversation(context, project),
                   ],
                 ),
-              const Divider(height: 28),
+              Divider(height: 28),
             ] else
-              const SizedBox(height: 16),
-            for (final entry in const {
+              SizedBox(height: 16),
+            for (final entry in {
               'Modelos locales': Icons.memory_outlined,
               'Ajustes': Icons.settings_outlined,
             }.entries)
               ListTile(
                 leading: Icon(entry.value),
-                title: Text(entry.key),
+                title: Text(S.t(entry.key)),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 onTap: () => onOpenPage(entry.key),
               ),
@@ -90,8 +91,8 @@ class ChatNavigation extends StatelessWidget {
     selected: project.id == activeId,
     selectedTileColor: Theme.of(context).colorScheme.surfaceContainerHighest,
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    leading: project.locked ? const Icon(Icons.lock_outline, size: 16)
-      : project.pinned ? const Icon(Icons.push_pin_outlined, size: 16) : null,
+    leading: project.locked ? Icon(Icons.lock_outline, size: 16)
+      : project.pinned ? Icon(Icons.push_pin_outlined, size: 16) : null,
     title: Text(project.name, maxLines: 1, overflow: TextOverflow.ellipsis),
     onTap: () => onSelect(project),
     trailing: ConversationMenu(

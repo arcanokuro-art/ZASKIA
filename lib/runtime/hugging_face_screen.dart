@@ -1,9 +1,11 @@
+import '../localization/strings.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
+import '../storage/download_manager.dart';
+import '../settings/app_settings.dart';
 
 class HuggingFaceScreen extends StatefulWidget {
   const HuggingFaceScreen({super.key});
@@ -13,26 +15,27 @@ class HuggingFaceScreen extends StatefulWidget {
 
 class _HuggingFaceScreenState extends State<HuggingFaceScreen> {
   final _search = TextEditingController();
-  final _client = HttpClient()..connectionTimeout = const Duration(seconds: 15);
+  final _client = HttpClient()..connectionTimeout = Duration(seconds: 15);
   List<Map<String, dynamic>> _results = [];
   bool _busy = false;
   String _status = 'Busca repositorios públicos por nombre.';
-  HttpClient? _download;
+  final _downloads = DownloadManager.instance;
 
   @override
   void dispose() {
     _client.close(force: true);
-    _download?.close(force: true);
+
     _search.dispose();
     super.dispose();
   }
 
   Future<dynamic> _json(Uri uri) async {
+    if (!AppSettings.instance.get<bool>('allowNetwork')) throw StateError('Acceso a red desactivado.');
     final request = await _client.getUrl(uri);
-    final response = await request.close().timeout(const Duration(seconds: 30));
+    final response = await request.close().timeout(Duration(seconds: 30));
     if (response.statusCode != 200) throw HttpException('Respuesta ${response.statusCode}');
     return jsonDecode(await response.transform(utf8.decoder).join()
-      .timeout(const Duration(seconds: 30)));
+      .timeout(Duration(seconds: 30)));
   }
 
   Future<void> _find() async {
@@ -67,9 +70,9 @@ class _HuggingFaceScreenState extends State<HuggingFaceScreen> {
         builder: (context) => AlertDialog(
           title: Text(id),
           content: SizedBox(width: 560, child: files.isEmpty
-            ? const Text('Este repositorio no contiene archivos GGUF individuales. Este piloto descarga archivos GGUF públicos.')
+            ? Text(S.t('Este repositorio no contiene archivos GGUF individuales. Este piloto descarga archivos GGUF públicos.'))
             : ListView(shrinkWrap: true, children: [
-                const Text('Los GGUF de texto de un solo archivo se cargan desde Ejecutar en este dispositivo.'),
+                Text(S.t('Los GGUF de texto de un solo archivo se cargan desde Ejecutar en este dispositivo.')),
                 for (final file in files)
                   ListTile(
                     title: Text(file['rfilename'] as String),
@@ -79,7 +82,7 @@ class _HuggingFaceScreenState extends State<HuggingFaceScreen> {
                     onTap: () => Navigator.pop(context, file),
                   ),
               ])),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar'))],
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(S.t('Cerrar')))],
         ),
       );
       if (selected != null) {
@@ -93,84 +96,51 @@ class _HuggingFaceScreenState extends State<HuggingFaceScreen> {
   }
 
   Future<void> _saveFile(String id, String revision, Map<String, dynamic> metadata) async {
-    final name = metadata['rfilename'] as String;
-    final support = await getApplicationSupportDirectory();
-    final folder = await Directory('${support.path}/huggingface').create(recursive: true);
-    final modelFolder = await Directory('${folder.path}/${id.replaceAll('/', '--')}/$revision').create(recursive: true);
-    final filename = name.split('/').last;
-    final destination = File('${modelFolder.path}/$filename');
-    final partial = File('${destination.path}.part');
-    final client = HttpClient()..connectionTimeout = const Duration(seconds: 15);
-    _download = client;
-    IOSink? sink;
-    try {
-      final request = await client.getUrl(Uri.https('huggingface.co', '/$id/resolve/$revision/$name'));
-      final response = await request.close().timeout(const Duration(seconds: 45));
-      if (response.statusCode != 200) throw HttpException('Respuesta ${response.statusCode}');
-      sink = partial.openWrite();
-      var received = 0;
-      var last = DateTime.now();
-      await for (final chunk in response.timeout(const Duration(minutes: 2))) {
-        sink.add(chunk);
-        received += chunk.length;
-        if (DateTime.now().difference(last).inMilliseconds > 300) {
-          await sink.flush();
-          last = DateTime.now();
-          if (mounted) setState(() => _status = response.contentLength > 0
-            ? 'Descargando ${(received / response.contentLength * 100).toStringAsFixed(0)} %'
-            : 'Descargados ${(received / 1000000).toStringAsFixed(1)} MB');
-        }
-      }
-      await sink.close();
-      sink = null;
-      if (response.contentLength >= 0 && received != response.contentLength) {
-        throw const FormatException('Descarga incompleta');
-      }
-      final file = await partial.open();
-      try {
-        if (String.fromCharCodes(await file.read(4)) != 'GGUF') {
-          throw const FormatException('GGUF inválido');
-        }
-      } finally {
-        await file.close();
-      }
-      await partial.rename(destination.path);
-      if (mounted) setState(() => _status = 'Guardado en ZASKIA: $name');
-    } finally {
-      await sink?.close();
-      client.close(force: true);
-      _download = null;
-      if (await partial.exists()) await partial.delete();
+    if (!AppSettings.instance.get<bool>('allowNetwork')) throw StateError('Acceso a red desactivado.');
+    final size = metadata['size'] as num?;
+    if (size == null || size > AppSettings.instance.get<int>('largeDownloadMB') * 1000000) {
+      final approved = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
+        title: Text(S.t('Confirmar descarga')),
+        content: Text(size == null ? 'Tamaño no informado' : '${(size / 1000000000).toStringAsFixed(2)} GB'),
+        actions: [TextButton(onPressed:()=>Navigator.pop(context,false), child:Text(S.t('Cancelar'))),
+          FilledButton(onPressed:()=>Navigator.pop(context,true), child:Text(S.t('Descargar')))],
+      ));
+      if (approved != true) return;
     }
+    _downloads.enqueue(id,revision,metadata);
+    if(mounted)setState(()=>_status='Descarga añadida a la cola');
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Hugging Face')),
+  Widget build(BuildContext context) => AnimatedBuilder(animation:_downloads,builder:(context,_)=>Scaffold(
+    appBar: AppBar(title: Text(S.t('Hugging Face'))),
     body: Center(child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 820),
+      constraints: BoxConstraints(maxWidth: 820),
       child: ListView(padding: const EdgeInsets.all(24), children: [
         TextField(controller: _search, enabled: !_busy,
           onSubmitted: (_) => _find(),
-          decoration: const InputDecoration(labelText: 'Buscar modelos',
-            hintText: 'Qwen, Gemma, GGUF…', border: OutlineInputBorder())),
-        const SizedBox(height: 12),
-        FilledButton(onPressed: _busy ? null : _find, child: const Text('Buscar')),
-        const SizedBox(height: 12),
-        Text(_status),
+          decoration: InputDecoration(labelText: S.t('Buscar modelos'),
+            hintText: S.t('Qwen, Gemma, GGUF…'), border: OutlineInputBorder())),
+        SizedBox(height: 12),
+        FilledButton(onPressed: _busy ? null : _find, child: Text(S.t('Buscar'))),
+        SizedBox(height: 12),
+        Text(S.t(_status)),
         if (_busy) ...[
-          const LinearProgressIndicator(),
-          TextButton(onPressed: () => _download?.close(force: true),
-            child: const Text('Cancelar descarga')),
+          LinearProgressIndicator(),
+
         ],
+        for (final task in _downloads.tasks.reversed)
+          ListTile(title:Text(task.name),subtitle:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+            Text(S.t(task.status)),if(!task.finished)LinearProgressIndicator(value:task.progress)]),
+            trailing:task.finished?null:IconButton(tooltip:S.t('Cancelar descarga'),icon:const Icon(Icons.close),onPressed:()=>_downloads.cancel(task))),
         for (final model in _results)
           ListTile(
             title: Text(model['id'] as String),
             subtitle: Text('${model['pipeline_tag'] ?? 'Modelo'} · ${model['downloads'] ?? 0} descargas'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: Icon(Icons.chevron_right),
             onTap: _busy ? null : () => _files(model['id'] as String),
           ),
       ]),
     )),
-  );
+  ));
 }

@@ -1,11 +1,11 @@
-ZASKIA para Debian — piloto 0.12.0
+ZASKIA para Debian — piloto 0.13.0
 
 Requisitos: Debian 12 o posterior, escritorio gráfico, procesador x86-64
 (Intel/AMD de 64 bits). Esta compilación utiliza CPU; no requiere CUDA.
 No es un paquete ARM64 ni de 32 bits. La RAM necesaria depende del modelo.
 
 Instalación desde la carpeta donde descargaste el archivo:
-  sudo apt install ./ZASKIA-0.12.0-linux-amd64.deb
+  sudo apt install ./ZASKIA-0.13.0-linux-amd64.deb
 
 Abrir: menú de aplicaciones → ZASKIA, o ejecutar `zaskia` en una terminal.
 Desinstalar: sudo apt remove zaskia

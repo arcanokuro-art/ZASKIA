@@ -1,20 +1,18 @@
 import 'dart:io';
 
-import 'package:path_provider/path_provider.dart';
+import '../storage/model_storage.dart';
 
 class DownloadedModels {
   DownloadedModels({this.directory});
   final Directory? directory;
 
-  Future<Directory> _root() async => directory ?? Directory(
-    '${(await getApplicationSupportDirectory()).path}/huggingface',
-  );
   Future<List<File>> list() async {
-    final root = await _root();
-    if (!await root.exists()) return [];
     final files = <File>[];
+    for (final root in directory != null ? [directory!] : await ModelStorage.roots()) {
+    if (!await root.exists()) continue;
     await for (final entry in root.list(recursive: true, followLinks: false)) {
       if (entry is File && entry.path.toLowerCase().endsWith('.gguf')) files.add(entry);
+    }
     }
     files.sort((a, b) => a.path.compareTo(b.path));
     return files;
@@ -34,7 +32,7 @@ class DownloadedModels {
     } finally {
       await input.close();
     }
-    final root = await _root();
+    final root = directory ?? await ModelStorage.root();
     final imports = await Directory('${root.path}/imports').create(recursive: true);
     final folder = await imports.createTemp('model-');
     final name = File(source).uri.pathSegments.last;

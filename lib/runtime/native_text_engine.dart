@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'linux_text_engine.dart';
+import '../settings/app_settings.dart';
 
 import 'package:llama_flutter_android/llama_flutter_android.dart';
 
@@ -10,12 +11,18 @@ class NativeTextEngine {
   String? _androidPath;
   String? get loadedPath => Platform.isLinux ? _linux.loadedPath : _androidPath;
   bool busy = false;
+  String _config = '';
+  int get _threads => AppSettings.instance.get<int>('threads');
+  int get _context => AppSettings.instance.get<int>('context');
   bool _cancelled = false;
 
   Future<void> load(String path) async {
     if (busy) throw StateError('Espera a que termine la generación.');
-    if (Platform.isLinux) return _linux.load(path);
-    if (loadedPath == path) return;
+    final config = '$_threads:$_context';
+    if (loadedPath == path && _config == config) return;
+    await unload();
+    _config = config;
+    if (Platform.isLinux) return _linux.load(path,threads:_threads,contextSize:_context);
     final file = await File(path).open();
     try {
       if (String.fromCharCodes(await file.read(4)) != 'GGUF') {
@@ -28,7 +35,7 @@ class NativeTextEngine {
     final controller = LlamaController();
     _controller = controller;
     try {
-      await controller.loadModel(modelPath: path, contextSize: 2048, threads: 4, gpuLayers: 0);
+      await controller.loadModel(modelPath: path, contextSize: _context, threads: _threads, gpuLayers: 0);
       _androidPath = path;
     } catch (_) {
       await unload();
@@ -49,7 +56,7 @@ class NativeTextEngine {
     if (busy) throw StateError('El motor ya está generando.');
     if (Platform.isLinux) {
       busy = true;
-      try { yield* _linux.chat(messages); } finally { busy = false; }
+      try { yield* _linux.chat(messages,maxTokens:AppSettings.instance.get<int>('maxTokens').clamp(1,_context ~/ 2),temperature:AppSettings.instance.get<double>('temperature')); } finally { busy = false; }
       return;
     }
     final controller = _controller;
@@ -63,7 +70,8 @@ class NativeTextEngine {
         messages: messages.map((item) => ChatMessage(
           role: item['role'] as String, content: item['content'] as String,
         )).toList(),
-        maxTokens: 512,
+        maxTokens: AppSettings.instance.get<int>('maxTokens').clamp(1,_context ~/ 2),
+        temperature: AppSettings.instance.get<double>('temperature'),
       )) {
         if (_cancelled) break;
         yield {'message': {'content': token}, 'done': false};

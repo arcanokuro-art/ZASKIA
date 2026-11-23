@@ -1,3 +1,4 @@
+import '../localization/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'model_runtime.dart';
@@ -58,47 +59,47 @@ class _ModelsScreenState extends State<ModelsScreen> {
         'Parámetros: ${data['details']?['parameter_size'] ?? 'Sin especificar'}\n'
         'Cuantización: ${data['details']?['quantization_level'] ?? 'Sin especificar'}',
       )),
-      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar'))],
+      actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(S.t('Cerrar')))],
     ));
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Modelos y conexión')),
-    body: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 760),
+    appBar: AppBar(title: Text(S.t('Modelos y conexión'))),
+    body: Center(child: ConstrainedBox(constraints: BoxConstraints(maxWidth: 760),
       child: ListView(padding: const EdgeInsets.all(24), children: [
         ListTile(
-          leading: const Icon(Icons.memory_outlined),
-          title: const Text('Biblioteca de modelos'),
-          subtitle: const Text('Instalados, ubicación, tamaño y compatibilidad'),
-          trailing: const Icon(Icons.chevron_right),
+          leading: Icon(Icons.memory_outlined),
+          title: Text(S.t('Biblioteca de modelos')),
+          subtitle: Text(S.t('Instalados, ubicación, tamaño y compatibilidad')),
+          trailing: Icon(Icons.chevron_right),
           onTap: _busy ? null : () => Navigator.push<void>(context, MaterialPageRoute(
             builder: (context) => LocalModelsScreen(runtime: widget.runtime),
           )).then((_) { if (mounted) setState(() {}); }),
         ),
         ListTile(
-          leading: const Icon(Icons.public),
-          title: const Text('Hugging Face'),
-          subtitle: const Text('Buscar modelos y descargar archivos GGUF'),
-          trailing: const Icon(Icons.chevron_right),
+          leading: Icon(Icons.public),
+          title: Text(S.t('Hugging Face')),
+          subtitle: Text(S.t('Buscar modelos y descargar archivos GGUF')),
+          trailing: Icon(Icons.chevron_right),
           onTap: () => Navigator.push<void>(context, MaterialPageRoute(
-            builder: (context) => const HuggingFaceScreen(),
+            builder: (context) => HuggingFaceScreen(),
           )),
         ),
-        const SizedBox(height: 20),
+        SizedBox(height: 20),
         TextField(controller: _address, enabled: !_busy,
-          decoration: const InputDecoration(labelText: 'Dirección de Ollama',
-            hintText: 'http://192.168.1.20:11434', border: OutlineInputBorder())),
-        const SizedBox(height: 12),
+          decoration: InputDecoration(labelText: S.t('Dirección de Ollama'),
+            hintText: S.t('http://192.168.1.20:11434'), border: OutlineInputBorder())),
+        SizedBox(height: 12),
         FilledButton(onPressed: _busy ? null : () => _run(_refresh),
-          child: const Text('Conectar y actualizar')),
-        const SizedBox(height: 12),
-        Text(_status),
-        if (_busy) const LinearProgressIndicator(),
-        const SizedBox(height: 24),
+          child: Text(S.t('Conectar y actualizar'))),
+        SizedBox(height: 12),
+        Text(S.t(_status)),
+        if (_busy) LinearProgressIndicator(),
+        SizedBox(height: 24),
         TextField(controller: _download, enabled: !_busy,
-          decoration: const InputDecoration(labelText: 'Modelo para descargar',
-            hintText: 'Nombre y etiqueta del catálogo de Ollama')),
+          decoration: InputDecoration(labelText: S.t('Modelo para descargar'),
+            hintText: S.t('Nombre y etiqueta del catálogo de Ollama'))),
         TextButton.icon(
           onPressed: _busy ? null : () => _run(() async {
             final name = _download.text.trim();
@@ -111,7 +112,7 @@ class _ModelsScreenState extends State<ModelsScreen> {
             }
             await _refresh();
           }),
-          icon: const Icon(Icons.download_outlined), label: const Text('Descargar en el motor')),
+          icon: Icon(Icons.download_outlined), label: Text(S.t('Descargar en el motor'))),
         for (final model in _models)
           ListTile(
             title: Text(model['name'] as String),
@@ -136,8 +137,8 @@ class _ModelsScreenState extends State<ModelsScreen> {
                   builder: (context) => AlertDialog(
                     title: Text('¿Eliminar $name del motor?'),
                     actions: [
-                      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-                      FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Eliminar')),
+                      TextButton(onPressed: () => Navigator.pop(context, false), child: Text(S.t('Cancelar'))),
+                      FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(S.t('Eliminar'))),
                     ]));
                 if (confirm != true) return;
                 await widget.runtime.request('/api/delete', method: 'DELETE', body: {'model': name});
@@ -145,12 +146,12 @@ class _ModelsScreenState extends State<ModelsScreen> {
                 await _refresh();
               }),
               itemBuilder: (context) => const [
-                PopupMenuItem(value: 'details', child: Text('Detalles y capacidades')),
-                PopupMenuItem(value: 'delete', child: Text('Eliminar del motor')),
+                PopupMenuItem(value: 'details', child: Text(S.t('Detalles y capacidades'))),
+                PopupMenuItem(value: 'delete', child: Text(S.t('Eliminar del motor'))),
               ]),
           ),
-        const SizedBox(height: 24),
-        const Text('Piloto de texto. Música, voz, imagen y video requieren motores adicionales.'),
+        SizedBox(height: 24),
+        Text(S.t('Piloto de texto. Música, voz, imagen y video requieren motores adicionales.')),
       ]))),
   );
 }

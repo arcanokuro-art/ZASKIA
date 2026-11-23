@@ -1,9 +1,10 @@
+import '../localization/strings.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 
 class ProjectReference {
-  const ProjectReference(this.name, this.path, this.image, {this.selected = true});
+  ProjectReference(this.name, this.path, this.image, {this.selected = true});
 
   factory ProjectReference.fromJson(Map<String, dynamic> json) => ProjectReference(
     json['name'] as String,
@@ -47,14 +48,14 @@ class ReferencesPanel extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('Referencias', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 12),
+          Text(S.t('Referencias'), style: Theme.of(context).textTheme.titleLarge),
+          SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: onAdd,
-            icon: const Icon(Icons.attach_file),
-            label: const Text('Agregar archivos'),
+            icon: Icon(Icons.attach_file),
+            label: Text(S.t('Agregar archivos')),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           for (final (index, reference) in references.indexed)
             ListTile(
               contentPadding: EdgeInsets.zero,
@@ -66,12 +67,12 @@ class ReferencesPanel extends StatelessWidget {
               subtitle: reference.image
                 ? Image.file(File(reference.path), fit: BoxFit.cover,
                     height: 64, cacheWidth: 256,
-                    errorBuilder: (_, __, ___) => const Text('Vista previa no disponible'))
+                    errorBuilder: (_, __, ___) => Text(S.t('Vista previa no disponible')))
                 : null,
               trailing: IconButton(
-                tooltip: 'Quitar referencia',
+                tooltip: S.t('Quitar referencia'),
                 onPressed: () => onRemove(index),
-                icon: const Icon(Icons.close, size: 18),
+                icon: Icon(Icons.close, size: 18),
               ),
               onTap: reference.image ? () => showDialog<void>(
                 context: context,
@@ -79,27 +80,27 @@ class ReferencesPanel extends StatelessWidget {
                   title: Text(reference.name),
                   content: InteractiveViewer(
                     child: Image.file(File(reference.path), fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => const Text('Vista previa no disponible')),
+                      errorBuilder: (_, __, ___) => Text(S.t('Vista previa no disponible'))),
                   ),
                   actions: [TextButton(onPressed: () => Navigator.pop(context),
-                    child: const Text('Cerrar'))],
+                    child: Text(S.t('Cerrar')))],
                 ),
               ) : null,
             ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           TextField(
             controller: note,
             onChanged: onNoteChanged,
             minLines: 3,
             maxLines: 6,
-            decoration: const InputDecoration(
-              labelText: 'Nota del proyecto',
-              hintText: 'Conservar expresión, ropa y fondo',
+            decoration: InputDecoration(
+              labelText: S.t('Nota del proyecto'),
+              hintText: S.t('Conservar expresión, ropa y fondo'),
               border: OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: 8),
-          const Text('La nota y los archivos marcados se incluyen al enviar.'),
+          SizedBox(height: 8),
+          Text(S.t('La nota y los archivos marcados se incluyen al enviar.')),
         ],
       ),
     ),

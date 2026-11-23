@@ -1,27 +1,45 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'settings/app_settings.dart';
+import 'storage/backup_service.dart';
 
 import 'workspace/projects_screen.dart';
 import 'platform/android_tablet.dart';
 
-void main() => runApp(const ZaskiaApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await AppSettings.instance.load();
+  runApp(const ZaskiaApp());
+  BackupService.start();
+}
 
 class ZaskiaApp extends StatelessWidget {
   const ZaskiaApp({super.key});
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
+  Widget build(BuildContext context) => AnimatedBuilder(animation: AppSettings.instance, builder:(context,_)=>MaterialApp(
     title: 'ZASKIA',
+    locale: Locale(AppSettings.instance.get<String>('language')),
+    supportedLocales: const [Locale('es'),Locale('en'),Locale('zh'),Locale('ko'),Locale('ja'),Locale('fr')],
+    localizationsDelegates: GlobalMaterialLocalizations.delegates,
+    themeMode: AppSettings.instance.themeMode,
+    themeAnimationDuration: AppSettings.instance.get<bool>('reduceMotion') ? Duration.zero : const Duration(milliseconds:200),
+    builder:(context,child)=>MediaQuery(data:MediaQuery.of(context).copyWith(
+      textScaler:TextScaler.linear(MediaQuery.textScalerOf(context).scale(AppSettings.instance.get<double>('textScale'))),
+      disableAnimations:AppSettings.instance.get<bool>('reduceMotion'),
+      highContrast:AppSettings.instance.get<bool>('contrast'),
+    ),child:child!),
     debugShowCheckedModeBanner: false,
     theme: _theme(Brightness.light),
     darkTheme: _theme(Brightness.dark),
     home: const AndroidTablet(child: ProjectsScreen()),
-  );
+  ));
 
   ThemeData _theme(Brightness brightness) {
     final dark = brightness == Brightness.dark;
     final background = dark ? const Color(0xFF101010) : Colors.white;
     final foreground = dark ? Colors.white : const Color(0xFF151515);
-    final muted = dark ? const Color(0xFFB3B3B3) : const Color(0xFF616161);
+    final muted = AppSettings.instance.get<bool>('contrast') ? foreground : dark ? const Color(0xFFB3B3B3) : const Color(0xFF616161);
     final panel = dark ? const Color(0xFF1D1D1D) : const Color(0xFFF3F3F3);
     final bubble = dark ? const Color(0xFF292929) : const Color(0xFFEAEAEA);
     final colors = ColorScheme(

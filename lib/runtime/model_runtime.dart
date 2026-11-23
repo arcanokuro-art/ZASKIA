@@ -5,9 +5,24 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 
 import 'native_text_engine.dart';
+import '../settings/app_settings.dart';
 
 class ModelRuntime {
   static final _native = NativeTextEngine();
+  static Timer? _idle;
+  Future<void> releaseMemory() async { _idle?.cancel(); await _native.unload(); }
+  void _armIdle() {
+    _idle?.cancel();
+    final minutes = AppSettings.instance.get<int>('idleMinutes');
+    if(minutes>0) _idle=Timer(Duration(minutes:minutes),()async{if(!_native.busy) {try {await _native.unload();}catch(_) {}}});
+  }
+  Future<void> suspend() async {
+    stop();
+    for(var i=0;i<20 && _native.busy;i++){await Future<void>.delayed(const Duration(milliseconds:100));}
+    if(!_native.busy)await releaseMemory();
+  }
+  Future<void> preload() async {if(useLocal&&localPath.isNotEmpty){await _native.load(localPath);_armIdle();}}
+
   bool _cancelLocal = false;
   bool useLocal = false;
   String localPath = '';
@@ -16,6 +31,7 @@ class ModelRuntime {
 
   Future<void> selectLocal(String path) async {
     await _native.load(path);
+    _armIdle();
     localPath = path;
     useLocal = true;
     await save();
@@ -68,6 +84,7 @@ class ModelRuntime {
 
   Future<Map<String, dynamic>> request(String endpoint, {String method = 'GET',
       Map<String, dynamic>? body}) async {
+    if(!AppSettings.instance.get<bool>('allowNetwork'))throw StateError('Acceso a red desactivado.');
     final client = HttpClient()..connectionTimeout = const Duration(seconds: 10);
     try {
       final request = await client.openUrl(method, Uri.parse('$address$endpoint'));
@@ -86,13 +103,19 @@ class ModelRuntime {
       ((await request('/api/tags'))['models'] as List? ?? []).cast<Map<String, dynamic>>();
 
   Stream<Map<String, dynamic>> stream(String endpoint, Map<String, dynamic> body) async* {
+    final settings = AppSettings.instance;
+    body = {...body,'options':{...?body['options'] as Map<String,dynamic>?,
+      'num_predict':settings.get<int>('maxTokens'),'temperature':settings.get<double>('temperature'),
+      'num_ctx':settings.get<int>('context'),'num_thread':settings.get<int>('threads')}};
     if (endpoint == '/api/chat' && useLocal) {
+      _idle?.cancel();
       _cancelLocal = false;
       await _native.load(localPath);
       if (_cancelLocal) return;
-      yield* _native.chat((body['messages'] as List).cast<Map<String, dynamic>>());
+      try { yield* _native.chat((body['messages'] as List).cast<Map<String, dynamic>>()); } finally { _armIdle(); }
       return;
     }
+    if(!AppSettings.instance.get<bool>('allowNetwork'))throw StateError('Acceso a red desactivado.');
     final client = HttpClient()..connectionTimeout = const Duration(seconds: 10);
     _generation = client;
     try {

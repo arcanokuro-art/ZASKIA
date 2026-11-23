@@ -1,3 +1,5 @@
+import '../localization/strings.dart';
+import '../settings/app_settings.dart';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -83,7 +85,7 @@ class _LocalModelsScreenState extends State<LocalModelsScreen> {
           for (final entry in info.metadata.entries) '${entry.key}\n${entry.value}',
         ].join('\n\n')),
       )),
-      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar'))],
+      actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(S.t('Cerrar')))],
     ));
   }
 
@@ -102,18 +104,18 @@ class _LocalModelsScreenState extends State<LocalModelsScreen> {
         'Capacidades\n${(info['capabilities'] as List? ?? []).join(', ')}',
         'Motor\nOllama conectado',
       ].join('\n\n'))),
-      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar'))],
+      actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(S.t('Cerrar')))],
     ));
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Biblioteca de modelos')),
+    appBar: AppBar(title: Text(S.t('Biblioteca de modelos'))),
     body: ListView(padding: const EdgeInsets.all(24), children: [
-      Text(_status),
-      const SizedBox(height: 12),
-      const Text('Modelos de texto GGUF de un solo archivo. CPU · contexto de 2048 tokens.'),
-      if (_busy) const LinearProgressIndicator(),
+      Text(S.t(_status)),
+      SizedBox(height: 12),
+      Text('GGUF · CPU · ${S.t('Contexto configurado')}: ${AppSettings.instance.get<int>('context')}'),
+      if (_busy) LinearProgressIndicator(),
       Wrap(spacing: 8, children: [
         OutlinedButton.icon(
           onPressed: _busy ? null : () => _run(() async {
@@ -124,21 +126,21 @@ class _LocalModelsScreenState extends State<LocalModelsScreen> {
             await _refresh();
             if (mounted) setState(() => _status = 'Modelo importado. Selecciona Cargar para usarlo.');
           }),
-          icon: const Icon(Icons.file_open_outlined),
-          label: const Text('Importar GGUF'),
+          icon: Icon(Icons.file_open_outlined),
+          label: Text(S.t('Importar GGUF')),
         ),
-        TextButton(onPressed: _busy ? null : () => _run(_refresh), child: const Text('Actualizar')),
+        TextButton(onPressed: _busy ? null : () => _run(_refresh), child: Text(S.t('Actualizar'))),
         TextButton(
           onPressed: _busy ? null : () => _run(() async {
             await widget.runtime.unloadLocal();
             if (mounted) setState(() => _status = 'Modelo liberado de la memoria.');
           }),
-          child: const Text('Liberar memoria'),
+          child: Text(S.t('Liberar memoria')),
         ),
       ]),
       if (_files.isEmpty && !_busy)
-        const ListTile(title: Text('Descarga un GGUF desde Hugging Face o importa uno.')),
-      if (_files.isNotEmpty) const ListTile(title: Text('En este dispositivo')),
+        ListTile(title: Text(S.t('Descarga un GGUF desde Hugging Face o importa uno.'))),
+      if (_files.isNotEmpty) ListTile(title: Text(S.t('En este dispositivo'))),
       for (final file in _files)
         ListTile(
           onTap: () => _showDetails(file),
@@ -156,20 +158,20 @@ class _LocalModelsScreenState extends State<LocalModelsScreen> {
               await widget.runtime.selectLocal(file.path);
               if (mounted) setState(() => _status = 'Listo. Regresa al chat para conversar sin conexión.');
             }),
-            child: const Text('Cargar'),
+            child: Text(S.t('Cargar')),
           ),
         ),
       if (_remoteStatus != null) ListTile(title: Text(_remoteStatus!)),
       if (_remote.isNotEmpty) ...[
-        const Divider(),
-        ListTile(title: const Text('En el motor conectado'),
+        Divider(),
+        ListTile(title: Text(S.t('En el motor conectado')),
           subtitle: Text(widget.runtime.address)),
         for (final model in _remote)
           ListTile(
-            leading: const Icon(Icons.computer_outlined),
+            leading: Icon(Icons.computer_outlined),
             title: Text(model['name'] as String),
             subtitle: Text('${((model['size'] as num? ?? 0) / 1000000000).toStringAsFixed(2)} GB · Ollama'),
-            trailing: const Icon(Icons.info_outline),
+            trailing: Icon(Icons.info_outline),
             onTap: _busy ? null : () => _run(() => _showRemote(model)),
           ),
       ],
