@@ -143,10 +143,13 @@ class _LocalModelsScreenState extends State<LocalModelsScreen> {
         ListTile(
           onTap: () => _showDetails(file),
           title: Text(_library.name(file)),
-          subtitle: Text('${_details[file.path]?.size ?? 'Tamaño pendiente'} · ${_details[file.path]?.format ?? 'GGUF'}\\n'.replaceAll(r'\n', '\n') + (!_library.singleFile(file) ? 'Modelo dividido: requiere todos sus componentes'
-            : widget.runtime.localPath == file.path && widget.runtime.useLocal
-              ? 'Seleccionado para el chat'
-              : 'Disponible en el dispositivo') + '\n${_details[file.path]?.capabilities ?? 'Capacidades por comprobar'}'),
+          subtitle: Text([
+            '${_details[file.path]?.size ?? 'Tamaño pendiente'} · ${_details[file.path]?.format ?? 'GGUF'}',
+            !_library.singleFile(file) ? 'Modelo dividido: requiere todos sus componentes'
+              : widget.runtime.localPath == file.path && widget.runtime.useLocal
+                ? 'Seleccionado para el chat' : 'Disponible en el dispositivo',
+            _details[file.path]?.capabilities ?? 'Capacidades por comprobar',
+          ].join('\n')),
           trailing: FilledButton(
             onPressed: _busy || !_library.singleFile(file) ? null : () => _run(() async {
               setState(() => _status = 'Cargando ${_library.name(file)}…');
