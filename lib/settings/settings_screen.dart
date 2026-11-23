@@ -31,11 +31,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState(){super.initState();_refresh();}
   Future<void> _refresh() async {
+    try {
     final device=await DeviceInfo.read();
     var bytes=0;
     for(final root in await ModelStorage.roots()){bytes+=await ModelStorage.size(root);}
     final folder=await ModelStorage.root();
     if(mounted)setState((){_device=device;_storage='${folder.path}\n${(bytes/1073741824).toStringAsFixed(2)} GiB';});
+    } catch(e) {await DiagnosticLog.record('storage-info',e);if(mounted)setState(()=>_status='No se pudo completar la operación.');}
   }
   Future<void> _run(Future<void> Function() action) async {
     if(_working)return;
@@ -72,10 +74,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       value:options.containsKey(s.snapshot[key])?s.snapshot[key]:options.keys.first,
       isExpanded:true,decoration:InputDecoration(labelText:S.t(label),border:const OutlineInputBorder()),
       items:[for(final e in options.entries)DropdownMenuItem(value:e.key,child:Text(S.t(e.value)))],
-      onChanged:_working?null:(v)=>_run(()=>s.set(key,v))));
+      onChanged:_working?null:(v)async{
+        if(key=='backupHours' && v!=0 && s.get<String>('backupFolder').isEmpty){await _folder('backupFolder');if(s.get<String>('backupFolder').isEmpty)return;}
+        await _run(()=>s.set(key,v));
+      }));
   Widget _slider(String key,String label,double min,double max,int divisions)=>Column(children:[
     ListTile(title:Text(S.t(label)),trailing:Text('${s.snapshot[key]}')),
-    Slider(value:(s.snapshot[key] as num).toDouble().clamp(min,max),min:min,max:max,divisions:divisions,
+    Slider(value:(s.snapshot[key] as num).toDouble().clamp(min,max).toDouble(),min:min,max:max,divisions:divisions,
       onChanged:_working?null:(v)=>_run(()=>s.set(key,['temperature','textScale'].contains(key)?v:v.round()))),
   ]);
   Widget _action(String label,IconData icon,VoidCallback action,{String? subtitle})=>ListTile(

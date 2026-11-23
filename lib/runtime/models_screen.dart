@@ -145,7 +145,7 @@ class _ModelsScreenState extends State<ModelsScreen> {
                 if (widget.runtime.model == name) widget.runtime.model = '';
                 await _refresh();
               }),
-              itemBuilder: (context) => const [
+              itemBuilder: (context) => [
                 PopupMenuItem(value: 'details', child: Text(S.t('Detalles y capacidades'))),
                 PopupMenuItem(value: 'delete', child: Text(S.t('Eliminar del motor'))),
               ]),

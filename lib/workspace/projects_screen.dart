@@ -45,7 +45,6 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
         select = project.id;
         items = [project, ...items];
       }
-      if (selected == null && select != null) select = null;
       final active = items.firstWhere((item) => item.id == select, orElse: () => items.firstWhere((item) => !item.archived && !item.locked));
       await AppSettings.instance.set('lastProject',active.id);
       if (mounted) setState(() {

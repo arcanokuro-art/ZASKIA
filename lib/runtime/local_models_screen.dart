@@ -46,7 +46,7 @@ class _LocalModelsScreenState extends State<LocalModelsScreen> {
     if (widget.runtime.address.isNotEmpty) {
       try {
         remote = await widget.runtime.models();
-      } on Exception {
+      } catch (_) {
         remoteStatus = 'No se pudo consultar el motor conectado.';
       }
     }

@@ -56,7 +56,7 @@ class NativeTextEngine {
     if (busy) throw StateError('El motor ya está generando.');
     if (Platform.isLinux) {
       busy = true;
-      try { yield* _linux.chat(messages,maxTokens:AppSettings.instance.get<int>('maxTokens').clamp(1,_context ~/ 2),temperature:AppSettings.instance.get<double>('temperature')); } finally { busy = false; }
+      try { yield* _linux.chat(messages,maxTokens:AppSettings.instance.get<int>('maxTokens').clamp(1,_context ~/ 2).toInt(),temperature:AppSettings.instance.get<double>('temperature')); } finally { busy = false; }
       return;
     }
     final controller = _controller;
@@ -70,7 +70,7 @@ class NativeTextEngine {
         messages: messages.map((item) => ChatMessage(
           role: item['role'] as String, content: item['content'] as String,
         )).toList(),
-        maxTokens: AppSettings.instance.get<int>('maxTokens').clamp(1,_context ~/ 2),
+        maxTokens: AppSettings.instance.get<int>('maxTokens').clamp(1,_context ~/ 2).toInt(),
         temperature: AppSettings.instance.get<double>('temperature'),
       )) {
         if (_cancelled) break;

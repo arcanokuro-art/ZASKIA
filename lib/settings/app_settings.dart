@@ -49,7 +49,7 @@ class AppSettings extends ChangeNotifier {
     final profiles = result['customProfiles'] as List;
     result['customProfiles'] = [for(final p in profiles.take(50))
       if(p is Map && p['name'] is String && p['values'] is Map)
-        {'name':(p['name'] as String).substring(0,(p['name'] as String).length.clamp(0,60)),
+        {'name':(p['name'] as String).substring(0,(p['name'] as String).length.clamp(0,60).toInt()),
          'values':{for(final k in ['threads','context','maxTokens','temperature','systemPrompt','idleMinutes'])
            if((p['values'] as Map).containsKey(k)) k:(p['values'] as Map)[k]}}];
     for(final key in ['memory','systemPrompt']) {

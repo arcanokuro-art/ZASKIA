@@ -67,8 +67,9 @@ class DownloadManager extends ChangeNotifier {
       await partial.rename(destination.path);task.progress=1;task.status='Guardado';
     }catch(e){task.status=task.cancelled?'Cancelada':'No se pudo descargar.';if(!task.cancelled)await DiagnosticLog.record('download',e);}
     finally{
-      await sink?.close();task.client?.close(force:true);task.client=null;
-      if(partial!=null&&await partial.exists())await partial.delete();
+      try {await sink?.close();}catch(_){}
+      task.client?.close(force:true);task.client=null;
+      try {if(partial!=null&&await partial.exists())await partial.delete();}catch(_){}
       task.running=false;task.finished=true;if(task.cancelled)task.status='Cancelada';notifyListeners();_pump();
     }
   }

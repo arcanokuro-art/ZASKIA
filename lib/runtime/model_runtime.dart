@@ -8,12 +8,14 @@ import 'native_text_engine.dart';
 import '../settings/app_settings.dart';
 
 class ModelRuntime {
+  ModelRuntime({AppSettings? settings}):_preferences=settings ?? AppSettings.instance;
+  final AppSettings _preferences;
   static final _native = NativeTextEngine();
   static Timer? _idle;
   Future<void> releaseMemory() async { _idle?.cancel(); await _native.unload(); }
   void _armIdle() {
     _idle?.cancel();
-    final minutes = AppSettings.instance.get<int>('idleMinutes');
+    final minutes = _preferences.get<int>('idleMinutes');
     if(minutes>0) _idle=Timer(Duration(minutes:minutes),()async{if(!_native.busy) {try {await _native.unload();}catch(_) {}}});
   }
   Future<void> suspend() async {
@@ -84,7 +86,7 @@ class ModelRuntime {
 
   Future<Map<String, dynamic>> request(String endpoint, {String method = 'GET',
       Map<String, dynamic>? body}) async {
-    if(!AppSettings.instance.get<bool>('allowNetwork'))throw StateError('Acceso a red desactivado.');
+    if(!_preferences.get<bool>('allowNetwork'))throw StateError('Acceso a red desactivado.');
     final client = HttpClient()..connectionTimeout = const Duration(seconds: 10);
     try {
       final request = await client.openUrl(method, Uri.parse('$address$endpoint'));
@@ -103,7 +105,7 @@ class ModelRuntime {
       ((await request('/api/tags'))['models'] as List? ?? []).cast<Map<String, dynamic>>();
 
   Stream<Map<String, dynamic>> stream(String endpoint, Map<String, dynamic> body) async* {
-    final settings = AppSettings.instance;
+    final settings = _preferences;
     body = {...body,'options':{...?body['options'] as Map<String,dynamic>?,
       'num_predict':settings.get<int>('maxTokens'),'temperature':settings.get<double>('temperature'),
       'num_ctx':settings.get<int>('context'),'num_thread':settings.get<int>('threads')}};
@@ -115,7 +117,7 @@ class ModelRuntime {
       try { yield* _native.chat((body['messages'] as List).cast<Map<String, dynamic>>()); } finally { _armIdle(); }
       return;
     }
-    if(!AppSettings.instance.get<bool>('allowNetwork'))throw StateError('Acceso a red desactivado.');
+    if(!_preferences.get<bool>('allowNetwork'))throw StateError('Acceso a red desactivado.');
     final client = HttpClient()..connectionTimeout = const Duration(seconds: 10);
     _generation = client;
     try {

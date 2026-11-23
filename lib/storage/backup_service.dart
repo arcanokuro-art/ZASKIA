@@ -26,11 +26,11 @@ class BackupService {
       await s.set('lastBackup',DateTime.now().millisecondsSinceEpoch);
     } catch (e) { await DiagnosticLog.record('scheduled-backup',e); }
   }
-  static Future<void> export(String path) async {
+  static Future<void> export(String path, {ProjectStore? projectStore}) async {
     if (_working) throw StateError('Hay un respaldo en curso.');
     _working = true;
     try {
-      final projects = await ProjectStore().list();
+      final projects = await (projectStore ?? ProjectStore()).list();
       final attachments = <String,String>{};
       var bytes = 0;
       for (final p in projects) {
@@ -58,11 +58,11 @@ class BackupService {
       await tmp.rename(target.path);
     } finally { _working = false; }
   }
-  static Future<int> restore(String path, {bool settings = false}) async {
+  static Future<int> restore(String path, {bool settings = false, ProjectStore? projectStore, Directory? temporaryDirectory}) async {
     if (_working) throw StateError('Hay un respaldo en curso.');
     _working = true;
     final created = <String>[];
-    final store = ProjectStore();
+    final store = projectStore ?? ProjectStore();
     Directory? scratch;
     try {
       final source = File(path);
@@ -77,7 +77,7 @@ class BackupService {
       final projects = (payload['projects'] as List).cast<Map<String,dynamic>>();
       if (projects.length>1000) throw const FormatException('Demasiadas conversaciones.');
       final files = (payload['files'] as Map<String,dynamic>).map((k,v)=>MapEntry(k,base64Decode(v as String)));
-      scratch = await (await getTemporaryDirectory()).createTemp('zaskia-restore-');
+      scratch = await (temporaryDirectory ?? await getTemporaryDirectory()).createTemp('zaskia-restore-');
       for (final entry in projects) {
         final p = await store.create(entry['name'] as String);
         created.add(p.id);
