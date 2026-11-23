@@ -9,6 +9,7 @@ import 'platform/android_tablet.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppSettings.instance.load();
+  try {await AppSettings.instance.initializeHardwareDefaults();}catch(_){}
   runApp(const ZaskiaApp());
   BackupService.start();
 }

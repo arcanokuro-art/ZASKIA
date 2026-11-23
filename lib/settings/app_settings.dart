@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
+import '../hardware/hardware_snapshot.dart';
+import '../hardware/hardware_advisor.dart';
 
 class AppSettings extends ChangeNotifier {
   AppSettings({this.file});
@@ -20,15 +22,23 @@ class AppSettings extends ChangeNotifier {
   Map<String, dynamic> _data = Map.of(defaults);
   Future<void> _writes = Future.value();
   String? error;
+  bool freshInstall=false;
   T get<T>(String key) => _data[key] as T;
   Map<String, dynamic> get snapshot => jsonDecode(jsonEncode(_data)) as Map<String, dynamic>;
   Future<File> _file() async => file ?? File('${(await getApplicationSupportDirectory()).path}/settings.json');
   Future<void> load() async {
     try {
       final target = await _file();
-      if (await target.exists()) _data = validate(jsonDecode(await target.readAsString()) as Map<String, dynamic>);
+      freshInstall=!await target.exists();
+      if (!freshInstall) _data = validate(jsonDecode(await target.readAsString()) as Map<String, dynamic>);
     } catch (_) { error = 'No se pudo leer la configuración.'; }
     notifyListeners();
+  }
+  Future<void> initializeHardwareDefaults({HardwareSnapshot? hardware})async {
+    if(!freshInstall)return;
+    final snapshot=hardware??await HardwareProbe.read();
+    await update(HardwareAdvisor.recommend(snapshot).settings);
+    freshInstall=false;
   }
   static Map<String, dynamic> validate(Map<String, dynamic> input) {
     final result = Map<String, dynamic>.of(defaults);

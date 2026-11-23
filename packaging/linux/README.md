@@ -1,11 +1,11 @@
-ZASKIA para Debian — piloto 0.13.0
+ZASKIA para Debian — piloto 0.14.0
 
 Requisitos: Debian 12 o posterior, escritorio gráfico, procesador x86-64
 (Intel/AMD de 64 bits). Esta compilación utiliza CPU; no requiere CUDA.
 No es un paquete ARM64 ni de 32 bits. La RAM necesaria depende del modelo.
 
 Instalación desde la carpeta donde descargaste el archivo:
-  sudo apt install ./ZASKIA-0.13.0-linux-amd64.deb
+  sudo apt install ./ZASKIA-0.14.0-linux-amd64.deb
 
 Abrir: menú de aplicaciones → ZASKIA, o ejecutar `zaskia` en una terminal.
 Desinstalar: sudo apt remove zaskia
@@ -23,3 +23,14 @@ Imágenes, música y video todavía no tienen un motor de generación integrado.
 
 Motor: llama.cpp v1.0.0, commit b1b770d90d94cad9e9ea5b993bdbc383a522fb28,
 MIT. Véanse llama.cpp-copyright y third-party-licenses en este directorio.
+
+0.14.0: Configuración → Mi equipo → Hardware y prueba de rendimiento.
+Se detectan ABI del proceso, núcleos y RAM. Los valores iniciales de instalaciones
+nuevas son conservadores; las preferencias existentes se conservan. Puedes aplicar
+las recomendaciones manualmente y exportar las mediciones a JSON.
+
+El motor Linux incluye variantes x64 básica, SSE4.2, AVX y AVX2. llama.cpp elige
+una variante compatible mediante comprobación de instrucciones en ejecución.
+La prueba solicita 128 tokens y no usa conversaciones ni memoria personal.
+Tokens/s solo se calcula con un conteo informado por el motor; no se confunden
+fragmentos de streaming con tokens. Ollama se identifica como motor externo.

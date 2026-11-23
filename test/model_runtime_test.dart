@@ -46,4 +46,23 @@ void main() {
     await expectLater(runtime.stream('/api/chat',{'messages':[]}).toList(),throwsStateError);
   });
 
+  test('per-request measurement limits override preferences without changing them',()async{
+    final root=await Directory.systemTemp.createTemp('zaskia-benchmark-options-');
+    addTearDown(()=>root.delete(recursive:true));
+    final settings=AppSettings(file:File('${root.path}/settings.json'));
+    await settings.update({'maxTokens':1024,'temperature':0.7});
+    final server=await HttpServer.bind(InternetAddress.loopbackIPv4,0);
+    addTearDown(()=>server.close(force:true));
+    server.listen((request)async{
+      final body=jsonDecode(await utf8.decoder.bind(request).join()) as Map;
+      expect(body['options']['num_predict'],128);expect(body['options']['temperature'],0.0);
+      request.response.write('${jsonEncode({'done':true,'message':{'content':'ok'}})}\n');
+      await request.response.close();
+    });
+    final runtime=ModelRuntime(settings:settings);runtime.configure('http://127.0.0.1:${server.port}');
+    await runtime.stream('/api/chat',{'options':{'num_predict':128,'temperature':0.0}}).toList();
+    expect(settings.get<int>('maxTokens'),1024);expect(settings.get<double>('temperature'),0.7);
+    expect(runtime.isBusy,false);expect(runtime.engineStatus['acceleration'],'unknown');
+  });
+
 }

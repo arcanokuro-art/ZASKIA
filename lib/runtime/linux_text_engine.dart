@@ -11,6 +11,8 @@ class LinuxTextEngine {
   Process? _process;
   int? _exitCode;
   String? loadedPath;
+  String? cpuBackend;
+  bool _abortLoad=false;
   int _port = 0;
   String _key = '';
   String _diagnostic = '';
@@ -31,7 +33,7 @@ class LinuxTextEngine {
       await file.close();
     }
     await unload();
-    _loading = true;
+    _loading = true;_abortLoad=false;cpuBackend=null;
     try {
       if (!await File(_executable).exists()) {
         throw StateError('Falta el motor Linux. Reinstala el paquete .deb de ZASKIA.');
@@ -47,10 +49,12 @@ class LinuxTextEngine {
         '--ctx-size', '$contextSize', '--parallel', '1', '--n-gpu-layers', '0',
         '--threads', '${max(1, min(threads, Platform.numberOfProcessors))}',
         '--no-webui',
-      ], environment: {'LLAMA_API_KEY': _key});
+      ], environment: {'LLAMA_API_KEY': _key},workingDirectory:File(_executable).parent.path);
       _process = process;
       void log(List<int> bytes) {
         _diagnostic += utf8.decode(bytes, allowMalformed: true);
+        final match=RegExp(r'loaded CPU backend from .*?(libggml-cpu[^/\s]*\.so)').firstMatch(_diagnostic);
+        if(match!=null)cpuBackend=match[1];
         if (_diagnostic.length > 4000) _diagnostic = _diagnostic.substring(_diagnostic.length - 4000);
       }
       process.stdout.listen(log);
@@ -60,6 +64,7 @@ class LinuxTextEngine {
       }));
       final deadline = DateTime.now().add(const Duration(minutes: 5));
       while (DateTime.now().isBefore(deadline)) {
+        if(_abortLoad)throw StateError('Carga cancelada.');
         if (_exitCode != null) throw StateError('El motor no pudo cargar el modelo (código $_exitCode). $_diagnostic');
         final client = HttpClient()..connectionTimeout = const Duration(seconds: 1);
         try {
@@ -116,12 +121,13 @@ class LinuxTextEngine {
       final request = await client.postUrl(Uri.parse('http://127.0.0.1:$_port/v1/chat/completions'));
       request.headers.contentType = ContentType.json;
       request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $_key');
-      request.write(jsonEncode({'messages': messages, 'stream': true, 'max_tokens': maxTokens,'temperature':temperature}));
+      request.write(jsonEncode({'messages': messages, 'stream': true, 'max_tokens': maxTokens,'temperature':temperature,'stream_options':{'include_usage':true}}));
       final response = await request.close().timeout(const Duration(minutes: 3));
       if (response.statusCode != 200) {
         final error = await utf8.decoder.bind(response).join().timeout(const Duration(seconds: 10));
         throw HttpException('El modelo devolvió ${response.statusCode}: $error');
       }
+      int? tokens;double? duration;
       await for (final line in response.transform(utf8.decoder).transform(const LineSplitter())
           .timeout(const Duration(minutes: 3))) {
         if (_cancelled) break;
@@ -130,13 +136,18 @@ class LinuxTextEngine {
         if (payload == '[DONE]') break;
         final data = jsonDecode(payload) as Map<String, dynamic>;
         if (data['error'] != null) throw StateError(data['error'].toString());
+        final usage=data['usage'] as Map?;
+        if(usage?['completion_tokens'] is int)tokens=usage!['completion_tokens'] as int;
+        final timings=data['timings'] as Map?;
+        if(timings?['predicted_ms'] is num)duration=(timings!['predicted_ms'] as num).toDouble()*1000000;
         final choices = data['choices'] as List? ?? [];
         if (choices.isEmpty) continue;
         final delta = (choices.first as Map)['delta'] as Map? ?? {};
         final text = delta['content'] as String? ?? '';
         if (text.isNotEmpty) yield {'message': {'content': text}, 'done': false};
       }
-      if (!_cancelled) yield {'message': {'content': ''}, 'done': true};
+      if (!_cancelled) yield {'message': {'content': ''}, 'done': true,
+        if(tokens!=null)'eval_count':tokens,if(duration!=null)'eval_duration':duration};
     } on IOException {
       if (!_cancelled) rethrow;
     } finally {
@@ -148,6 +159,7 @@ class LinuxTextEngine {
 
   void stop() {
     _cancelled = true;
+    if(_loading){_abortLoad=true;_process?.kill();}
     _generation?.close(force: true);
   }
 }

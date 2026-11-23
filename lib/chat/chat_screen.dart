@@ -358,7 +358,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       history.last['content'] = '$text\n\n$material';
       await for (final data in _runtime.stream('/api/chat', {
         'model': _runtime.model, 'messages': history, 'stream': true,
-        'options': {'num_predict': 1024},
       })) {
         if (!mounted) break;
         final token = data['message']?['content'] as String? ?? '';

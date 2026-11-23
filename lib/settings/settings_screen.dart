@@ -14,6 +14,7 @@ import '../runtime/model_runtime.dart';
 import '../runtime/models_screen.dart';
 import '../workspace/project_store.dart';
 import 'app_settings.dart';
+import '../hardware/hardware_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key,required this.runtime});
@@ -211,6 +212,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         });}),
       ],['backupFolder','backupHours','lastBackup']),
       _section('Mi equipo',[
+        _action('Hardware y prueba de rendimiento',Icons.speed,()=>Navigator.push(context,MaterialPageRoute<void>(builder:(_)=>HardwareScreen(runtime:widget.runtime)))),
         for(final e in _device.entries)ListTile(title:Text(S.t(e.key)),subtitle:SelectableText(e.value)),
         Text(S.t('Estimación orientativa: empieza con pesos de modelo menores a la mitad de la RAM disponible. El contexto y el motor necesitan memoria adicional.')),
         _action('Actualizar información del equipo',Icons.refresh,()=>_run(_refresh)),

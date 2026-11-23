@@ -24,3 +24,16 @@ Los respaldos programados funcionan mientras la app está abierta. Los agentes y
 la ejecución de comandos todavía no están implementados y no tienen permisos ficticios.
 Las copias `.zaskia` se importan como conversaciones adicionales y conservan adjuntos.
 Los modelos no se incluyen. Se limita cada respaldo a 64 MB descomprimidos y 32 MB de adjuntos.
+
+## Hardware y rendimiento (0.14.0)
+
+- `lib/hardware`: ABI del proceso, sensores Linux/Android y recomendaciones conservadoras.
+- `lib/benchmark`: protocolo fijo, cancelación, mediciones e historial/exportación JSON.
+- CPU integrada en Linux x86-64 y Android ARM64; no se declara soporte validado en otros sistemas.
+- Las instalaciones nuevas adaptan hilos y contexto. Las existentes requieren aplicar la recomendación.
+- Linux incorpora despacho de CPU x64/SSE4.2/AVX/AVX2 y una prueba de inferencia sin AVX bajo QEMU.
+- El conteo de tokens proviene del backend cuando está disponible. Se guarda también texto Unicode
+  por segundo de tiempo total, latencia al primer texto y estado de carga inicial.
+- Los informes excluyen respuestas, conversaciones, memoria personal, rutas de modelos y URL de Ollama.
+- La memoria disponible y sus estimaciones no garantizan que un modelo quepa; faltan pruebas físicas
+  por cada fabricante. No se activa GPU/NPU en esta versión.

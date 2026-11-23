@@ -10,6 +10,7 @@ install -d "$stage/DEBIAN" "$stage/usr/lib/zaskia" "$stage/usr/bin" \
   "$stage/usr/share/applications" "$stage/usr/share/icons/hicolor/scalable/apps" \
   "$stage/usr/share/doc/zaskia"
 cp -a "$bundle/." "$stage/usr/lib/zaskia/"
+cp -a build/llama/bin/*.so* "$stage/usr/lib/zaskia/"
 install -m755 build/llama/bin/llama-server "$stage/usr/lib/zaskia/llama-server"
 cc -O2 -Wall -Wextra -Werror packaging/linux/engine.c -o "$stage/usr/lib/zaskia/zaskia-engine"
 ln -s ../lib/zaskia/zaskia "$stage/usr/bin/zaskia"
@@ -34,7 +35,7 @@ CONTROL
 mapfile -t binaries < <(find "$stage/usr/lib/zaskia" -type f -exec sh -c 'file -b "$1" | grep -q "ELF.*dynamically linked"' sh {} \; -print)
 args=()
 for binary in "${binaries[@]}"; do args+=("-e$binary"); done
-deps="$(dpkg-shlibdeps -O --ignore-missing-info -l"$stage/usr/lib/zaskia/lib" "${args[@]}" | sed -n 's/^shlibs:Depends=//p')"
+deps="$(dpkg-shlibdeps -O --ignore-missing-info -l"$stage/usr/lib/zaskia/lib" -l"$stage/usr/lib/zaskia" "${args[@]}" | sed -n 's/^shlibs:Depends=//p')"
 test -n "$deps"
 cat > "$stage/DEBIAN/control" <<CONTROL
 Package: zaskia

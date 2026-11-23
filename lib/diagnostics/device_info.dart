@@ -1,21 +1,17 @@
 import 'dart:io';
+import '../hardware/hardware_snapshot.dart';
 
 class DeviceInfo {
   static Future<Map<String,String>> read() async {
     final data = <String,String>{'Sistema':'${Platform.operatingSystem} ${Platform.operatingSystemVersion}',
       'Procesadores lógicos':'${Platform.numberOfProcessors}'};
-    if (Platform.isLinux || Platform.isAndroid) {
-      try {
-        final mem = await File('/proc/meminfo').readAsString();
-        for (final entry in {'MemTotal':'RAM total','MemAvailable':'RAM disponible'}.entries) {
-          final match = RegExp('${entry.key}:\\s+(\\d+)').firstMatch(mem);
-          if (match != null) data[entry.value] = '${(int.parse(match[1]!) / 1048576).toStringAsFixed(1)} GiB';
-        }
-        final cpu = await File('/proc/cpuinfo').readAsLines();
-        final name = cpu.where((s)=>s.startsWith('model name')||s.startsWith('Hardware')).firstOrNull;
-        if (name != null) data['Procesador'] = name.split(':').skip(1).join(':').trim();
-      } catch (_) { /* Some Android devices restrict /proc. */ }
-    }
+    final hardware=await HardwareProbe.read();
+    data['Arquitectura del proceso']=hardware.architecture;
+    data['ABI']=hardware.abi;
+    data['Procesadores utilizables']='${hardware.usableCores}';
+    if(hardware.processor!=null)data['Procesador']=hardware.processor!;
+    if(hardware.totalMemory!=null)data['RAM total']='${(hardware.totalMemory!/1073741824).toStringAsFixed(1)} GiB';
+    if(hardware.availableMemory!=null)data['RAM disponible']='${(hardware.availableMemory!/1073741824).toStringAsFixed(1)} GiB';
     if (Platform.isLinux) {
       try {
         final r = await Process.run('df',['-Pk',Platform.environment['HOME'] ?? '/']);

@@ -21,7 +21,7 @@ jobs:
           apt-get update
           apt-get install -y git jq curl ca-certificates xz-utils unzip clang cmake ninja-build pkg-config \
             libgtk-3-dev liblzma-dev libstdc++-12-dev build-essential dpkg-dev file \
-            xvfb xauth desktop-file-utils procps python3
+            xvfb xauth desktop-file-utils procps python3 qemu-user
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
@@ -46,8 +46,8 @@ jobs:
       - uses: actions/cache/restore@v4
         id: engine-cache
         with:
-          path: build/llama/bin/llama-server
-          key: llama-v1.0.0-debian12-baseline-v2
+          path: build/llama/bin
+          key: llama-v1.0.0-debian12-cpu-dispatch-v1
       - name: Fetch pinned engine source and licenses
         run: |
           mkdir -p vendor
@@ -57,18 +57,19 @@ jobs:
         if: steps.engine-cache.outputs.cache-hit != 'true'
         run: |
           cmake -S vendor/llama.cpp -B build/llama -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DGGML_BACKEND_DL=OFF \
+            -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON \
+            -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON '-DCMAKE_INSTALL_RPATH=$ORIGIN' \
             -DGGML_NATIVE=OFF -DGGML_SSE42=OFF -DGGML_AVX=OFF -DGGML_AVX2=OFF \
             -DGGML_BMI2=OFF -DGGML_FMA=OFF -DGGML_F16C=OFF \
             -DLLAMA_OPENSSL=OFF -DLLAMA_BUILD_UI=OFF -DLLAMA_USE_PREBUILT_UI=OFF -DLLAMA_BUILD_APP=OFF \
             -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF
-          cmake --build build/llama --target llama-server -j2
+          cmake --build build/llama --target llama-server ggml-cpu-x64 ggml-cpu-sse42 ggml-cpu-sandybridge ggml-cpu-haswell -j2
           build/llama/bin/llama-server --version
       - uses: actions/cache/save@v4
         if: steps.engine-cache.outputs.cache-hit != 'true'
         with:
-          path: build/llama/bin/llama-server
-          key: llama-v1.0.0-debian12-baseline-v2
+          path: build/llama/bin
+          key: llama-v1.0.0-debian12-cpu-dispatch-v1
       - name: Package and validate installation
         run: |
           bash packaging/linux/build-deb.sh
@@ -92,6 +93,7 @@ jobs:
           urllib.request.urlretrieve(url, 'build/smoke-model.gguf')
           PYTHON
           dart run tool/linux_engine_smoke.dart /usr/lib/zaskia/zaskia-engine build/smoke-model.gguf
+          python3 tool/cpu_baseline_smoke.py "$PWD/build/smoke-model.gguf"
           if pgrep -x llama-server; then echo 'Engine leaked after unloading'; exit 1; fi
       - uses: actions/upload-artifact@v4
         with:

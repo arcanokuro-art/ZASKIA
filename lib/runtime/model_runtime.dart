@@ -6,11 +6,37 @@ import 'package:path_provider/path_provider.dart';
 
 import 'native_text_engine.dart';
 import '../settings/app_settings.dart';
+import '../hardware/hardware_snapshot.dart';
 
 class ModelRuntime {
   ModelRuntime({AppSettings? settings}):_preferences=settings ?? AppSettings.instance;
   final AppSettings _preferences;
   static final _native = NativeTextEngine();
+  bool _streaming=false;
+  Future<HardwareSnapshot>? _hardware;
+  int? _availableCores;
+  int get _threads=>_preferences.get<int>('threads').clamp(1,_availableCores??Platform.numberOfProcessors).toInt();
+  Future<void> prepareConfiguration()async {
+    final hardware=await (_hardware??=HardwareProbe.read());
+    _availableCores=hardware.usableCores;
+  }
+  bool get isBusy=>_streaming||_native.busy;
+  bool get modelLoaded=>useLocal&&_native.matches(localPath,threads:_threads,contextSize:_preferences.get<int>('context'));
+  Map<String,dynamic> get engineStatus=>{
+    'engine':useLocal?'llama.cpp':'Ollama','location':useLocal?'local':'external',
+    'acceleration':useLocal?'CPU':'unknown','cpuBackend':useLocal?_native.cpuBackend:null,
+    'model':selectedName,'loaded':useLocal?modelLoaded:null,
+  };
+  Map<String,dynamic> get configuration=>{'threads':useLocal?_threads:_preferences.get<int>('threads'),
+    'requestedThreads':_preferences.get<int>('threads'),
+    'context':_preferences.get<int>('context'),'maxTokens':_preferences.get<int>('maxTokens'),
+    'temperature':_preferences.get<double>('temperature')};
+  Future<void> _loadNative(String path)async {
+    if(!HardwareProbe.supportsNativeRuntime())throw StateError('Arquitectura no cubierta por este motor integrado.');
+    await prepareConfiguration();
+    await _native.load(path,threads:_threads,contextSize:_preferences.get<int>('context'));
+  }
+
   static Timer? _idle;
   Future<void> releaseMemory() async { _idle?.cancel(); await _native.unload(); }
   void refreshRetention() {if(useLocal && _native.loadedPath!=null)_armIdle();}
@@ -24,7 +50,7 @@ class ModelRuntime {
     for(var i=0;i<20 && _native.busy;i++){await Future<void>.delayed(const Duration(milliseconds:100));}
     if(!_native.busy)await releaseMemory();
   }
-  Future<void> preload() async {if(useLocal&&localPath.isNotEmpty){await _native.load(localPath);_armIdle();}}
+  Future<void> preload() async {if(useLocal&&localPath.isNotEmpty){await _loadNative(localPath);_armIdle();}}
 
   bool _cancelLocal = false;
   bool useLocal = false;
@@ -33,7 +59,7 @@ class ModelRuntime {
   bool get ready => useLocal ? localPath.isNotEmpty : model.isNotEmpty && address.isNotEmpty;
 
   Future<void> selectLocal(String path) async {
-    await _native.load(path);
+    await _loadNative(path);
     _armIdle();
     localPath = path;
     useLocal = true;
@@ -106,16 +132,24 @@ class ModelRuntime {
       ((await request('/api/tags'))['models'] as List? ?? []).cast<Map<String, dynamic>>();
 
   Stream<Map<String, dynamic>> stream(String endpoint, Map<String, dynamic> body) async* {
+    if(isBusy)throw StateError('El motor ya está generando.');
+    _streaming=true;
+    try {yield* _stream(endpoint,body);}finally{_streaming=false;}
+  }
+  Stream<Map<String, dynamic>> _stream(String endpoint, Map<String, dynamic> body) async* {
     final settings = _preferences;
-    body = {...body,'options':{...?body['options'] as Map<String,dynamic>?,
+    body = {...body,'options':{
       'num_predict':settings.get<int>('maxTokens'),'temperature':settings.get<double>('temperature'),
-      'num_ctx':settings.get<int>('context'),'num_thread':settings.get<int>('threads')}};
+      'num_ctx':settings.get<int>('context'),'num_thread':settings.get<int>('threads'),
+      ...?body['options'] as Map<String,dynamic>?}};
     if (endpoint == '/api/chat' && useLocal) {
       _idle?.cancel();
       _cancelLocal = false;
-      await _native.load(localPath);
+      await _loadNative(localPath);
       if (_cancelLocal) return;
-      try { yield* _native.chat((body['messages'] as List).cast<Map<String, dynamic>>()); } finally { _armIdle(); }
+      try { yield* _native.chat((body['messages'] as List).cast<Map<String, dynamic>>(),
+        maxTokens:((body['options'] as Map)['num_predict'] as num).toInt(),
+        temperature:((body['options'] as Map)['temperature'] as num).toDouble()); } finally { _armIdle(); }
       return;
     }
     if(!_preferences.get<bool>('allowNetwork'))throw StateError('Acceso a red desactivado.');
