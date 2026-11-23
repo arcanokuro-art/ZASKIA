@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'dart:typed_data';
 
 class ModelInfo {
@@ -120,7 +121,7 @@ class _GgufReader {
     final size = await number(8);
     if (keep) {
       final bytes = await read(size);
-      return String.fromCharCodes(bytes);
+      return utf8.decode(bytes);
     }
     await skip(size);
     return '';
