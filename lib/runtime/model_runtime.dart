@@ -8,6 +8,7 @@ import 'native_text_engine.dart';
 
 class ModelRuntime {
   static final _native = NativeTextEngine();
+  bool _cancelLocal = false;
   bool useLocal = false;
   String localPath = '';
   String get selectedName => useLocal ? File(localPath).uri.pathSegments.last : model;
@@ -86,7 +87,9 @@ class ModelRuntime {
 
   Stream<Map<String, dynamic>> stream(String endpoint, Map<String, dynamic> body) async* {
     if (endpoint == '/api/chat' && useLocal) {
+      _cancelLocal = false;
       await _native.load(localPath);
+      if (_cancelLocal) return;
       yield* _native.chat((body['messages'] as List).cast<Map<String, dynamic>>());
       return;
     }
@@ -113,6 +116,7 @@ class ModelRuntime {
 
   void stop() {
     _generation?.close(force: true);
+    _cancelLocal = true;
     if (useLocal) _native.stop();
   }
 }
