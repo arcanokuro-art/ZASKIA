@@ -305,7 +305,7 @@ class _ChatScreenState extends State<ChatScreen> {
     });
     _focus.unfocus();
     await _save();
-    if (_runtime.model.isEmpty || _runtime.address.isEmpty || !mounted) return;
+    if (!_runtime.ready || !mounted) return;
     setState(() => _generating = true);
     try {
       final history = <Map<String, String>>[];
@@ -387,6 +387,10 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _openInfo(String title) {
+    if (_generating) {
+      _notice('Detén la generación antes de cambiar el motor.');
+      return;
+    }
     if (title == 'Modelos locales') {
       Navigator.push<void>(context, MaterialPageRoute(
         builder: (context) => ModelsScreen(runtime: _runtime),
@@ -406,7 +410,7 @@ class _ChatScreenState extends State<ChatScreen> {
           else
             const ListTile(
               leading: Icon(Icons.system_update_alt),
-              title: Text('ZASKIA 0.9.1'),
+              title: Text('ZASKIA 0.10.0'),
               subtitle: Text('Actualizaciones mediante APK firmada de GitHub Releases.'),
             ),
         ]),
@@ -422,12 +426,12 @@ class _ChatScreenState extends State<ChatScreen> {
     projects: widget.projects,
     activeId: widget.project?.id,
     onSelect: (project) {
-      if (_picking || project.id == widget.project?.id) return;
+      if (_picking || _generating || project.id == widget.project?.id) return;
       if (temporary) Navigator.pop(context);
       widget.onSelectConversation?.call(project.id);
     },
     onAction: (project, action) {
-      if (_picking) return;
+      if (_picking || _generating) return;
       if (temporary) Navigator.pop(context);
       widget.onConversationAction?.call(project, action);
     },
@@ -557,7 +561,7 @@ class _ChatScreenState extends State<ChatScreen> {
         Align(
           alignment: Alignment.centerLeft,
           child: message.answer.isNotEmpty ? SelectableText(message.answer) : Text(
-            _generating && identical(message, _messages.last) ? 'Generando…' : _runtime.model.isEmpty ? 'Modelo local sin configurar' : 'Sin respuesta',
+            _generating && identical(message, _messages.last) ? 'Generando…' : !_runtime.ready ? 'Modelo local sin configurar' : 'Sin respuesta',
             style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13)),
         ),
       ]),
@@ -681,7 +685,7 @@ class _ChatScreenState extends State<ChatScreen> {
         if (_messages.isEmpty)
           Padding(
             padding: const EdgeInsets.only(left: 8, top: 8),
-            child: Text('Modelo local sin configurar',
+            child: Text(_runtime.ready ? _runtime.selectedName : 'Modelo local sin configurar',
               style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12)),
           ),
       ]),
