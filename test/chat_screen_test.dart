@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zaskia/chat/chat_screen.dart';
 import 'package:zaskia/platform/android_tablet.dart';
