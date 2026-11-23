@@ -19,7 +19,7 @@ jobs:
       - name: Install Debian build dependencies
         run: |
           apt-get update
-          apt-get install -y git curl ca-certificates xz-utils unzip clang cmake ninja-build pkg-config \
+          apt-get install -y git jq curl ca-certificates xz-utils unzip clang cmake ninja-build pkg-config \
             libgtk-3-dev liblzma-dev libstdc++-12-dev build-essential dpkg-dev file \
             xvfb xauth desktop-file-utils procps python3
       - uses: actions/checkout@v4
@@ -64,8 +64,21 @@ jobs:
           test -f /usr/share/applications/zaskia.desktop
           ! ldd /usr/lib/zaskia/zaskia | grep 'not found'
           ! ldd /usr/lib/zaskia/llama-server | grep 'not found'
-          xvfb-run -a bash -c 'zaskia >build/linux-startup.log 2>&1 & app=$!; sleep 8; kill -0 "$app"; kill "$app"; wait "$app" || true'
+          xvfb-run -a bash -e -c 'zaskia >build/linux-startup.log 2>&1 & app=$!; sleep 8; kill -0 "$app"; kill "$app"; wait "$app" || true'
           cat build/linux-startup.log
+      - name: Verify real GGUF inference and cleanup
+        run: |
+          python3 - <<'PYTHON'
+          import json, urllib.request
+          repo = 'ggml-org-dev/test-model-stories260K'
+          with urllib.request.urlopen('https://huggingface.co/api/models/' + repo, timeout=60) as r:
+              model = json.load(r)
+          filename = next(f['rfilename'] for f in model['siblings'] if f['rfilename'].endswith('.gguf'))
+          url = 'https://huggingface.co/' + repo + '/resolve/' + model['sha'] + '/' + filename
+          urllib.request.urlretrieve(url, 'build/smoke-model.gguf')
+          PYTHON
+          dart run tool/linux_engine_smoke.dart /usr/lib/zaskia/zaskia-engine build/smoke-model.gguf
+          if pgrep -x llama-server; then echo 'Engine leaked after unloading'; exit 1; fi
       - uses: actions/upload-artifact@v4
         with:
           name: ZASKIA-Debian-amd64

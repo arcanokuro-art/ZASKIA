@@ -641,7 +641,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 icon: const Icon(Icons.add),
                 onSelected: _handleAction,
                 itemBuilder: (context) => [
-                  for (final option in const [
+                  for (final option in [
                     if (defaultTargetPlatform == TargetPlatform.android)
                       (_Action.camera, Icons.photo_camera_outlined, 'Cámara'),
                     (_Action.photos, Icons.photo_library_outlined, 'Fotos'),

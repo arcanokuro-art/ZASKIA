@@ -17,6 +17,7 @@ install -m644 packaging/linux/zaskia.desktop "$stage/usr/share/applications/"
 install -m644 packaging/linux/zaskia.svg "$stage/usr/share/icons/hicolor/scalable/apps/"
 install -m644 vendor/llama.cpp/LICENSE "$stage/usr/share/doc/zaskia/llama.cpp-copyright"
 cp -a vendor/llama.cpp/licenses "$stage/usr/share/doc/zaskia/third-party-licenses"
+install -m644 vendor/llama.cpp/vendor/cpp-httplib/LICENSE "$stage/usr/share/doc/zaskia/third-party-licenses/cpp-httplib-LICENSE"
 install -m644 packaging/linux/README.md "$stage/usr/share/doc/zaskia/README"
 # Derive shared-library requirements from the actual binaries, on Debian 12.
 mkdir -p debian
