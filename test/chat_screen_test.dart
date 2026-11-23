@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zaskia/chat/chat_screen.dart';
 import 'package:zaskia/platform/android_tablet.dart';
@@ -58,4 +59,17 @@ void main() {
     expect(find.textContaining('diseñada para tablets Android'), findsOneWidget);
     expect(find.byType(TextField), findsNothing);
   });
+  testWidgets('Linux accepts a narrow desktop window and hides Android camera', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    tablet(tester, const Size(500, 800));
+    await tester.pumpWidget(const MaterialApp(home: AndroidTablet(child: ChatScreen())));
+    await tester.pumpAndSettle();
+    expect(find.byType(TextField), findsOneWidget);
+    await tester.tap(find.byTooltip('Adjuntar o elegir herramienta'));
+    await tester.pumpAndSettle();
+    expect(find.text('Cámara'), findsNothing);
+    expect(find.text('Archivos'), findsOneWidget);
+  });
+
 }

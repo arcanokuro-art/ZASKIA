@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=ZASKIA
+Comment=Ejecuta modelos de inteligencia artificial localmente
+Exec=zaskia
+Icon=zaskia
+Terminal=false
+Categories=Utility;
+StartupWMClass=com.zaskarstartup.zaskia

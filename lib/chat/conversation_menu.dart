@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 import '../workspace/project_store.dart';
 
@@ -21,7 +22,8 @@ class ConversationMenu extends StatelessWidget {
       return [
         _item(ConversationAction.rename, Icons.edit_outlined, 'Renombrar'),
         _item(ConversationAction.pin, Icons.push_pin_outlined, project.pinned ? 'Desfijar' : 'Fijar'),
-        _item(ConversationAction.lock, Icons.lock_outline, project.locked ? 'Quitar bloqueo' : 'Bloquear chat'),
+        if (defaultTargetPlatform == TargetPlatform.android)
+          _item(ConversationAction.lock, Icons.lock_outline, project.locked ? 'Quitar bloqueo' : 'Bloquear chat'),
         const PopupMenuDivider(),
         _item(ConversationAction.archive, Icons.archive_outlined, project.archived ? 'Desarchivar' : 'Archivar'),
         _item(ConversationAction.remove, Icons.delete_outline, 'Eliminar', color: danger),

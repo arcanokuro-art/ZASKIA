@@ -69,7 +69,7 @@ class _HuggingFaceScreenState extends State<HuggingFaceScreen> {
           content: SizedBox(width: 560, child: files.isEmpty
             ? const Text('Este repositorio no contiene archivos GGUF individuales. Este piloto descarga archivos GGUF públicos.')
             : ListView(shrinkWrap: true, children: [
-                const Text('Los GGUF de texto de un solo archivo se cargan desde Ejecutar en esta tablet.'),
+                const Text('Los GGUF de texto de un solo archivo se cargan desde Ejecutar en este dispositivo.'),
                 for (final file in files)
                   ListTile(
                     title: Text(file['rfilename'] as String),

@@ -21,7 +21,7 @@ class _LocalModelsScreenState extends State<LocalModelsScreen> {
   Map<String, ModelInfo> _details = {};
   List<Map<String, dynamic>> _remote = [];
   String? _remoteStatus;
-  String _status = 'Selecciona un GGUF de texto para ejecutarlo en esta tablet.';
+  String _status = 'Selecciona un GGUF de texto para ejecutarlo en este dispositivo.';
 
   @override
   void initState() {

@@ -10,7 +10,8 @@ class AndroidTablet extends StatelessWidget {
   Widget build(BuildContext context) {
     final display = View.of(context).display;
     final shortestSide = display.size.shortestSide / display.devicePixelRatio;
-    if (defaultTargetPlatform == TargetPlatform.android && shortestSide >= 600) {
+    if (defaultTargetPlatform == TargetPlatform.linux ||
+        (defaultTargetPlatform == TargetPlatform.android && shortestSide >= 600)) {
       return child;
     }
 

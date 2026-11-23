@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:local_auth/local_auth.dart';
 
 import '../chat/conversation_menu.dart';
@@ -88,6 +89,12 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
   }
 
   Future<bool> _authenticate() async {
+    if (defaultTargetPlatform != TargetPlatform.android) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('El bloqueo de chats requiere autenticación de Android. No está disponible en Linux.'),
+      ));
+      return false;
+    }
     try {
       return await LocalAuthentication().authenticate(
         localizedReason: 'Confirma tu identidad para acceder a este chat.',

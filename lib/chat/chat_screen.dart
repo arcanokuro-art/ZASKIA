@@ -6,6 +6,7 @@ import '../runtime/models_screen.dart';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../workspace/project_store.dart';
@@ -221,7 +222,13 @@ class _ChatScreenState extends State<ChatScreen> {
           final file = await _picker.pickImage(source: ImageSource.camera);
           selected = [if (file != null) _photo(file)];
         case _Action.photos:
-          selected = (await _picker.pickMultiImage()).map(_photo).toList();
+          if (Platform.isLinux) {
+            final result = await FilePicker.platform.pickFiles(allowMultiple: true, type: FileType.image);
+            selected = [for (final file in result?.files ?? <PlatformFile>[])
+              if (file.path case final String path) _Attachment(file.name, path, image: true)];
+          } else {
+            selected = (await _picker.pickMultiImage()).map(_photo).toList();
+          }
         case _Action.files:
           final result = await FilePicker.platform.pickFiles(allowMultiple: true);
           selected = [
@@ -635,7 +642,8 @@ class _ChatScreenState extends State<ChatScreen> {
                 onSelected: _handleAction,
                 itemBuilder: (context) => [
                   for (final option in const [
-                    (_Action.camera, Icons.photo_camera_outlined, 'Cámara'),
+                    if (defaultTargetPlatform == TargetPlatform.android)
+                      (_Action.camera, Icons.photo_camera_outlined, 'Cámara'),
                     (_Action.photos, Icons.photo_library_outlined, 'Fotos'),
                     (_Action.files, Icons.attach_file, 'Archivos'),
                     (_Action.create, Icons.image_outlined, 'Crear imagen'),

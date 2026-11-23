@@ -1,15 +1,20 @@
 import 'dart:io';
 
+import 'linux_text_engine.dart';
+
 import 'package:llama_flutter_android/llama_flutter_android.dart';
 
 class NativeTextEngine {
+  final _linux = LinuxTextEngine();
   LlamaController? _controller;
-  String? loadedPath;
+  String? _androidPath;
+  String? get loadedPath => Platform.isLinux ? _linux.loadedPath : _androidPath;
   bool busy = false;
   bool _cancelled = false;
 
   Future<void> load(String path) async {
     if (busy) throw StateError('Espera a que termine la generación.');
+    if (Platform.isLinux) return _linux.load(path);
     if (loadedPath == path) return;
     final file = await File(path).open();
     try {
@@ -24,7 +29,7 @@ class NativeTextEngine {
     _controller = controller;
     try {
       await controller.loadModel(modelPath: path, contextSize: 2048, threads: 4, gpuLayers: 0);
-      loadedPath = path;
+      _androidPath = path;
     } catch (_) {
       await unload();
       rethrow;
@@ -33,14 +38,20 @@ class NativeTextEngine {
 
   Future<void> unload() async {
     if (busy) throw StateError('Espera a que termine la generación.');
+    if (Platform.isLinux) return _linux.unload();
     final controller = _controller;
     _controller = null;
-    loadedPath = null;
+    _androidPath = null;
     if (controller != null) await controller.dispose();
   }
 
   Stream<Map<String, dynamic>> chat(List<Map<String, dynamic>> messages) async* {
     if (busy) throw StateError('El motor ya está generando.');
+    if (Platform.isLinux) {
+      busy = true;
+      try { yield* _linux.chat(messages); } finally { busy = false; }
+      return;
+    }
     final controller = _controller;
     if (controller == null) throw StateError('Carga un modelo local primero.');
     busy = true;
@@ -64,6 +75,7 @@ class NativeTextEngine {
   }
 
   Future<void> stop() async {
+    if (Platform.isLinux) { _linux.stop(); return; }
     _cancelled = true;
     await _controller?.stop();
   }

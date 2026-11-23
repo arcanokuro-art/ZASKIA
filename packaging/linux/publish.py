@@ -1,0 +1,44 @@
+"""Publish via the GitHub API without requiring a Debian gh package."""
+import glob
+import json
+import os
+import urllib.error
+import urllib.request
+
+repo = os.environ['GITHUB_REPOSITORY']
+tag = os.environ['TAG']
+headers = {'Authorization': 'Bearer ' + os.environ['GH_TOKEN'],
+           'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'}
+base = 'https://api.github.com/repos/' + repo
+
+def request(url, data=None, method=None, content_type='application/json'):
+    req = urllib.request.Request(url, data=data, method=method,
+                                 headers={**headers, 'Content-Type': content_type})
+    with urllib.request.urlopen(req, timeout=120) as response:
+        body = response.read()
+        return json.loads(body) if body else None
+
+try:
+    release = request(base + '/releases/tags/' + tag)
+except urllib.error.HTTPError as error:
+    if error.code != 404:
+        raise
+    try:
+        release = request(base + '/releases', json.dumps({
+            'tag_name': tag, 'target_commitish': os.environ['GITHUB_SHA'],
+            'name': 'ZASKIA ' + tag, 'prerelease': True,
+            'body': 'Piloto para Debian 12+ amd64. Incluye motor GGUF de texto por CPU, biblioteca y Hugging Face. Instalar con sudo apt install ./ZASKIA-0.12.0-linux-amd64.deb. Los modelos se descargan aparte.',
+        }).encode())
+    except urllib.error.HTTPError as conflict:
+        if conflict.code != 422:
+            raise
+        release = request(base + '/releases/tags/' + tag)
+for path in sorted(glob.glob('ZASKIA-*-linux-amd64.deb*')):
+    name = os.path.basename(path)
+    for asset in release.get('assets', []):
+        if asset['name'] == name:
+            request(asset['url'], method='DELETE')
+    with open(path, 'rb') as file:
+        request(release['upload_url'].split('{')[0] + '?name=' + name,
+                file.read(), content_type='application/octet-stream')
+    print('Published', name)

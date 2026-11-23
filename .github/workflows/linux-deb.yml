@@ -1,0 +1,82 @@
+name: ZASKIA Debian package
+on:
+  workflow_dispatch:
+  push:
+    branches: [develop/flutter-ui-v0.1]
+permissions:
+  contents: write
+concurrency:
+  group: zaskia-debian-release
+  cancel-in-progress: false
+jobs:
+  debian:
+    runs-on: ubuntu-22.04
+    container: debian:bookworm
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Install Debian build dependencies
+        run: |
+          apt-get update
+          apt-get install -y git curl ca-certificates xz-utils unzip clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libstdc++-12-dev build-essential dpkg-dev file \
+            xvfb xauth desktop-file-utils procps python3
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.32.8'
+          channel: stable
+          cache: true
+      - name: Generate Linux desktop runner
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          scaffold="$(mktemp -d)"
+          flutter create --no-pub --platforms=linux --org com.zaskarstartup --project-name zaskia "$scaffold"
+          cp -a "$scaffold/linux" linux
+          sed -i 's/"zaskia"/"ZASKIA"/g; s/1280, 720/1100, 760/' linux/runner/my_application.cc
+          flutter pub get
+      - name: Analyze and test
+        run: |
+          flutter analyze
+          flutter test
+      - name: Build Linux application
+        run: flutter build linux --release
+      - name: Build bundled CPU engine
+        run: |
+          mkdir -p vendor
+          git clone --depth 1 --branch v1.0.0 https://github.com/ggml-org/llama.cpp.git vendor/llama.cpp
+          test "$(git -C vendor/llama.cpp rev-parse HEAD)" = b1b770d90d94cad9e9ea5b993bdbc383a522fb28
+          cmake -S vendor/llama.cpp -B build/llama -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DGGML_BACKEND_DL=OFF \
+            -DGGML_NATIVE=OFF -DGGML_SSE42=OFF -DGGML_AVX=OFF -DGGML_AVX2=OFF \
+            -DGGML_BMI2=OFF -DGGML_FMA=OFF -DGGML_F16C=OFF \
+            -DLLAMA_OPENSSL=OFF -DLLAMA_BUILD_UI=OFF -DLLAMA_BUILD_APP=OFF \
+            -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF
+          cmake --build build/llama --target llama-server -j2
+          build/llama/bin/llama-server --version
+      - name: Package and validate installation
+        run: |
+          bash packaging/linux/build-deb.sh
+          desktop-file-validate packaging/linux/zaskia.desktop
+          apt-get install -y ./ZASKIA-*-linux-amd64.deb
+          test -x /usr/bin/zaskia
+          test -f /usr/share/applications/zaskia.desktop
+          ! ldd /usr/lib/zaskia/zaskia | grep 'not found'
+          ! ldd /usr/lib/zaskia/llama-server | grep 'not found'
+          xvfb-run -a bash -c 'zaskia >build/linux-startup.log 2>&1 & app=$!; sleep 8; kill -0 "$app"; kill "$app"; wait "$app" || true'
+          cat build/linux-startup.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ZASKIA-Debian-amd64
+          path: |
+            ZASKIA-*-linux-amd64.deb
+            ZASKIA-*-linux-amd64.deb.sha256
+          if-no-files-found: error
+      - name: Publish Debian prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(awk '/^version: / {print $2}' pubspec.yaml)"
+          export TAG="v${version%+*}"
+          python3 packaging/linux/publish.py
