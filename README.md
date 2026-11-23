@@ -37,3 +37,8 @@ Los modelos no se incluyen. Se limita cada respaldo a 64 MB descomprimidos y 32 
 - Los informes excluyen respuestas, conversaciones, memoria personal, rutas de modelos y URL de Ollama.
 - La memoria disponible y sus estimaciones no garantizan que un modelo quepa; faltan pruebas físicas
   por cada fabricante. No se activa GPU/NPU en esta versión.
+
+Android (0.14.1): `tool/android/configure_cpu.py` adapta la dependencia fijada a
+ARMv8-A sin requisitos incondicionales CRC/dot-product. La configuración es
+idempotente y falla si cambia la estructura del plugin. Esto no reemplaza las
+pruebas físicas por fabricante, versión de Android y modelo.

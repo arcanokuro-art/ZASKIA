@@ -37,6 +37,10 @@ jobs:
           sed -i 's/android:label="zaskia"/android:label="ZASKIA"/' android/app/src/main/AndroidManifest.xml
       - name: Resolve dependencies
         run: flutter pub get
+      - name: Configure portable Android ARM64 CPU
+        run: |
+          python3 -m unittest discover -s test -p '*_test.py'
+          python3 tool/android/configure_cpu.py
       - name: Analyze Dart code
         run: flutter analyze
       - name: Test chat interface
