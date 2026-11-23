@@ -37,10 +37,9 @@ with open('build/cpu-baseline.log', 'w+') as log:
         with urllib.request.urlopen(request, timeout=60) as response:
             result = json.load(response)
         assert result['usage']['completion_tokens'] > 0
-        log.flush()
-        log.seek(0)
-        output = log.read()
-        assert 'libggml-cpu-x64.so' in output, output[-5000:]
+        with open('/proc/' + str(process.pid) + '/maps') as maps:
+            loaded = maps.read()
+        assert 'libggml-cpu-x64.so' in loaded, loaded[-5000:]
         print('Baseline CPU inference passed without AVX or SSE4.2.')
     finally:
         process.terminate()
