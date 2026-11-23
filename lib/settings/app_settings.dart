@@ -9,7 +9,7 @@ class AppSettings extends ChangeNotifier {
   final File? file;
   static const defaults = <String, dynamic>{
     'language': 'es', 'theme': 'system', 'textScale': 1.0, 'compact': false,
-    'contrast': false, 'reduceMotion': false, 'modelFolder': '', 'backupFolder': '',
+    'contrast': false, 'reduceMotion': false, 'modelFolder': '', 'modelFolders':<dynamic>[], 'backupFolder': '',
     'threads': 4, 'context': 2048, 'maxTokens': 512, 'temperature': 0.7,
     'idleMinutes': 10, 'backgroundWork': false, 'systemPrompt': '',
     'responseLanguage': 'auto', 'enterSends': false, 'remember': false, 'memory': '',
@@ -46,6 +46,7 @@ class AppSettings extends ChangeNotifier {
     if (!['system','light','dark'].contains(result['theme'])) result['theme'] = 'system';
     if (!['last','new'].contains(result['startup'])) result['startup'] = 'last';
     if (!['auto','es','en','zh','ko','ja','fr'].contains(result['responseLanguage'])) result['responseLanguage'] = 'auto';
+    result['modelFolders']=(result['modelFolders'] as List).whereType<String>().where((p)=>p.isNotEmpty).toSet().toList();
     final profiles = result['customProfiles'] as List;
     result['customProfiles'] = [for(final p in profiles.take(50))
       if(p is Map && p['name'] is String && p['values'] is Map)

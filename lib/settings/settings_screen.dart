@@ -54,7 +54,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if(path==null)return;
     await _run(()async{
       final probe=await Directory(path).createTemp('.zaskia-check-');await probe.delete();
-      await s.set(key,path);await _refresh();
+      if(key=='modelFolder'){
+        final previous=s.get<String>('modelFolder');
+        final folders=<String>{...s.get<List>('modelFolders').cast<String>(),if(previous.isNotEmpty)previous,path};
+        await s.update({'modelFolder':path,'modelFolders':folders.toList()});
+      } else {await s.set(key,path);}
+      await _refresh();
     });
   }
   Future<void> _edit(String key,String title) async {

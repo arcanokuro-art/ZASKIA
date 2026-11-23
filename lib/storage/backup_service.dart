@@ -113,7 +113,7 @@ class BackupService {
       if(settings) {
         final saved = AppSettings.validate(Map<String,dynamic>.from(payload['settings'] as Map));
         // Device paths and schedules must be explicitly chosen on the destination.
-        for(final key in ['modelFolder','backupFolder','backupHours','lastProject','lastBackup']) { saved.remove(key); }
+        for(final key in ['modelFolder','modelFolders','backupFolder','backupHours','lastProject','lastBackup']) { saved.remove(key); }
         await AppSettings.instance.update(saved);
       }
       return created.length;

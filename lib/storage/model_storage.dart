@@ -11,7 +11,8 @@ class ModelStorage {
   static Future<List<Directory>> roots() async {
     final legacy = Directory('${(await getApplicationSupportDirectory()).path}/huggingface');
     final current = await root();
-    return [current, if (current.path != legacy.path) legacy];
+    final paths=<String>{current.path,legacy.path,...AppSettings.instance.get<List>('modelFolders').cast<String>()};
+    return paths.map(Directory.new).toList();
   }
   static Future<int> size(Directory root) async {
     if (!await root.exists()) return 0;
