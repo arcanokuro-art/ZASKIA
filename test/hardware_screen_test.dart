@@ -19,7 +19,7 @@ void main(){
     await tester.pumpAndSettle();
     expect(find.text('ARM64'),findsOneWidget);
     await tester.scrollUntilVisible(find.text('Iniciar prueba'),500,scrollable:find.byType(Scrollable).first);
-    final button=tester.widget<FilledButton>(find.widgetWithText(FilledButton,'Iniciar prueba'));
+    final button=tester.widget<FilledButton>(find.ancestor(of:find.text('Iniciar prueba'),matching:find.byWidgetPredicate((widget)=>widget is FilledButton)).first);
     expect(button.onPressed,isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
