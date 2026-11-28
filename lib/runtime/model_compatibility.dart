@@ -22,7 +22,7 @@ class ModelCompatibility {
     if(!recognized)return result('unknown','La arquitectura no está verificada. La carga puede fallar.','llama.cpp');
     // Model weights + runtime buffers + a deliberately broad context allowance.
     // KV cache size depends on architecture; this is a screening estimate only.
-    final estimate=(info.bytes*1.25).ceil()+max(256*1024*1024,context*256*1024);
+    final estimate=((info.bytes*1.25).ceil()+max(256*1024*1024,context*256*1024)).toInt();
     if(free!=null&&estimate>free*0.8)return result('warning','La memoria libre parece insuficiente. Prueba un modelo menor o un contexto más corto.','llama.cpp',estimate:estimate);
     if(free==null)return result('unknown','No se conoce la memoria libre. Verifica cargando el modelo.','llama.cpp',estimate:estimate);
     return result('candidate','Candidato para este equipo. La compatibilidad final se confirma al cargar.','llama.cpp',estimate:estimate);

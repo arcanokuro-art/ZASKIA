@@ -32,7 +32,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override void initState(){super.initState();_inspect();}
   @override void dispose(){_runtime.stop();super.dispose();}
   Future<void> _inspect()async{
-    try{final h=await (widget.probe??HardwareProbe.read)();final existing=await DownloadedModels().list();if(mounted)setState((){_hardware=h;_chosen=StarterCatalog.suggest(h);_existing=existing;});}
+    try{final h=await (widget.probe??HardwareProbe.read)();var existing=<File>[];try{existing=await DownloadedModels().list();}catch(_){}if(mounted)setState((){_hardware=h;_chosen=StarterCatalog.suggest(h);_existing=existing;});}
     catch(_){if(mounted)setState(()=>_status='No se pudo detectar el equipo. Puedes continuar manualmente.');}
   }
   Future<void> _run(Future<void> Function() action)async{
