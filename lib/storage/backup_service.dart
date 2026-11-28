@@ -36,7 +36,9 @@ class BackupService {
       for (final p in projects) {
         final data = p.data;
         final lists = <List>[data['attachments'] as List? ?? [],data['references'] as List? ?? [],
-          for (final m in data['messages'] as List? ?? []) (m as Map)['attachments'] as List? ?? []];
+          for (final m in data['messages'] as List? ?? []) (m as Map)['attachments'] as List? ?? [],
+          for (final b in data['branches'] as List? ?? [])
+            for(final m in (b as Map)['messages'] as List? ?? []) (m as Map)['attachments'] as List? ?? []];
         for (final list in lists) {
           for (final item in list) {
             final original = (item as Map)['path'] as String?;
@@ -105,6 +107,11 @@ class BackupService {
         data['references']=await restoreItems(data['references']);
         for(final message in data['messages'] as List? ?? []) {
           (message as Map)['attachments']=await restoreItems(message['attachments']);
+        }
+        for(final branch in data['branches'] as List? ?? []) {
+          for(final message in (branch as Map)['messages'] as List? ?? []) {
+            (message as Map)['attachments']=await restoreItems(message['attachments']);
+          }
         }
         await store.save(Project(p.id,p.name,DateTime.now().millisecondsSinceEpoch,data,
           options:{for(final o in Map<String,dynamic>.from(entry['options'] as Map? ?? {}).entries)

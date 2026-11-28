@@ -13,6 +13,7 @@ void main(){
     final source=await File('${root.path}/text.txt').writeAsString('contenido de prueba');
     final attachment=await store.copyAttachment(p.id,source.path);
     await store.save(Project(p.id,p.name,1,{'draft':'Hola','messages':[],
+      'branches':[{'created':1,'messages':[{'attachments':[{'name':'text.txt','path':attachment,'image':false}]}]}],
       'references':[{'name':'text.txt','path':attachment,'image':false,'selected':true}]},options:{'pinned':true}));
     final backup='${root.path}/backup.zaskia';
     await BackupService.export(backup,projectStore:store);
@@ -23,6 +24,8 @@ void main(){
     final path=(restored.data['references'] as List).single['path'] as String;
     expect(path, isNot(attachment));
     expect(await File(path).readAsString(),'contenido de prueba');
+    final branchPath=restored.data['branches'][0]['messages'][0]['attachments'][0]['path'];
+    expect(branchPath,path);
     expect(restored.pinned,true);
     expect((await store.list()).any((v)=>v.name=='Conservar'),true);
     final invalid=await File('${root.path}/invalid.zaskia').writeAsBytes(gzip.encode(utf8.encode('{"format":"other"}')));

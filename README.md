@@ -1,12 +1,10 @@
-# ZASKIA 0.15.0
+# ZASKIA 0.15.1
 
 Descargas reanudables, configuración de ejecución, conversaciones con versiones y estudio multimedia modular. [Guía y alcance real de los motores](docs/MULTIMEDIA.md).
 
-# ZASKIA
+Ejecutor modular de inteligencia artificial para Android ARM64 y Linux x86-64, desarrollado con Flutter por Zaskar Startup.
 
-Aplicación Android de inteligencia artificial local, desarrollada con Flutter por Zaskar Startup.
-
-Estado: prototipo de interfaz. Los motores de IA aún no están integrados.
+Incluye texto GGUF por CPU y adaptadores multimedia para motores instalados por separado.
 
 
 ## Linux Debian

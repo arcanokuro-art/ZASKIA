@@ -7,6 +7,7 @@ import urllib.request
 
 repo = os.environ['GITHUB_REPOSITORY']
 tag = os.environ['TAG']
+version = tag.removeprefix('v')
 headers = {'Authorization': 'Bearer ' + os.environ['GH_TOKEN'],
            'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'}
 base = 'https://api.github.com/repos/' + repo
@@ -27,7 +28,7 @@ except urllib.error.HTTPError as error:
         release = request(base + '/releases', json.dumps({
             'tag_name': tag, 'target_commitish': os.environ['GITHUB_SHA'],
             'name': 'ZASKIA ' + tag, 'prerelease': True,
-            'body': 'Piloto para Debian 12+ amd64. Incluye motor GGUF de texto por CPU, biblioteca y Hugging Face. Instalar con sudo apt install ./ZASKIA-0.14.1-linux-amd64.deb. Los modelos se descargan aparte.',
+            'body': f'Piloto para Debian 12+ amd64. Incluye motor GGUF de texto por CPU, biblioteca y Hugging Face. Instalar con sudo apt install ./ZASKIA-{version}-linux-amd64.deb. Los modelos se descargan aparte.',
         }).encode())
     except urllib.error.HTTPError as conflict:
         if conflict.code != 422:
@@ -35,10 +36,13 @@ except urllib.error.HTTPError as error:
         release = request(base + '/releases/tags/' + tag)
 body = release.get('body') or ''
 if 'Debian' not in body:
-    body += '\n\nLinux Debian 12+ amd64: paquete .deb con motor de texto GGUF por CPU incluido. Instalar con `sudo apt install ./ZASKIA-0.14.1-linux-amd64.deb`. Los modelos se descargan aparte.'
+    body += f'\n\nLinux Debian 12+ amd64: paquete .deb con motor de texto GGUF por CPU incluido. Instalar con `sudo apt install ./ZASKIA-{version}-linux-amd64.deb`. Los modelos se descargan aparte.'
     request(base + '/releases/' + str(release['id']), json.dumps({'body': body}).encode(), method='PATCH')
 if 'Configuración modular' not in body:
     body += '\n\nConfiguración modular: apariencia, perfiles, rendimiento, memoria, permisos, cola de descargas, respaldos, diagnóstico y actualizaciones. Español predeterminado; inglés, chino simplificado, coreano, japonés y francés disponibles.'
+    request(base + '/releases/' + str(release['id']), json.dumps({'body': body}).encode(), method='PATCH')
+if 'Estudio multimedia' not in body:
+    body += '\n\nEstudio multimedia: adaptadores ComfyUI (imagen, música y video) y voz LocalAI/compatible. Los motores y modelos multimedia se instalan por separado. Descargas reanudables y verificadas, controles de ejecución y conversaciones con versiones, Markdown e importación/exportación.'
     request(base + '/releases/' + str(release['id']), json.dumps({'body': body}).encode(), method='PATCH')
 for path in sorted(glob.glob('ZASKIA-*-linux-amd64.deb*')):
     name = os.path.basename(path)

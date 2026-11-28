@@ -5,6 +5,18 @@ import 'package:crypto/crypto.dart';
 /// Range downloads only append a server-confirmed byte interval. No model is
 /// published until its length, optional digest and format have been checked.
 class ResumableTransfer {
+  ResumableTransfer({this.availableBytes = availableDiskBytes});
+  final Future<int?> Function(String path) availableBytes;
+  static Future<int?> availableDiskBytes(String path) async {
+    if(!Platform.isLinux && !Platform.isAndroid)return null;
+    try {
+      final result=await Process.run('df',['-Pk',path]).timeout(const Duration(seconds:3));
+      if(result.exitCode!=0)return null;
+      final lines=(result.stdout as String).trim().split('\n');
+      final columns=lines.last.trim().split(RegExp(r'\s+'));
+      return columns.length>=4 ? int.tryParse(columns[3])==null?null:int.parse(columns[3])*1024 : null;
+    }catch(_){return null;}
+  }
   HttpClient? _client;
   bool stopped = false;
   void stop() { stopped = true; _client?.close(force: true); }
@@ -39,6 +51,7 @@ class ResumableTransfer {
           throw HttpException('HTTP ${response.statusCode}');
         }
         final total = expectedSize ?? (response.contentLength < 0 ? null : offset + response.contentLength);
+        if(total!=null){final free=await availableBytes(partial.parent.path);if(free!=null&&free<total-offset+67108864)throw const FileSystemException('Espacio insuficiente para completar la descarga.');}
         sink = partial.openWrite(mode: offset > 0 ? FileMode.append : FileMode.write);
         var received = offset;
         await for (final chunk in response.timeout(const Duration(minutes: 2))) {

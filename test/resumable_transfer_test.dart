@@ -28,6 +28,13 @@ void main(){
     server.listen((r)async{r.response.statusCode=206;r.response.headers.set('content-range','bytes 0-3/8');r.response.write('oops');await r.response.close();});
     await expectLater(ResumableTransfer().fetch(Uri.parse('http://127.0.0.1:${server.port}'),f,expectedSize:8),throwsFormatException);expect(await f.readAsString(),'GGUF');
   });
+  test('known insufficient disk space rejects transfer without writing bytes',()async{
+    final root=await Directory.systemTemp.createTemp();addTearDown(()=>root.delete(recursive:true));
+    final f=File('${root.path}/part');final server=await HttpServer.bind(InternetAddress.loopbackIPv4,0);addTearDown(()=>server.close(force:true));
+    server.listen((r)async{r.response.contentLength=8;r.response.write('GGUFtest');await r.response.close();});
+    await expectLater(ResumableTransfer(availableBytes:(_)async=>0).fetch(Uri.parse('http://127.0.0.1:${server.port}'),f,expectedSize:8),throwsA(isA<FileSystemException>()));
+    expect(await f.exists(),false);
+  });
   test('persisted queue restores unfinished files paused and rejects traversal',()async{
     final root=await Directory.systemTemp.createTemp();addTearDown(()=>root.delete(recursive:true));
     final state=File('${root.path}/queue.json');final settings=AppSettings(file:File('${root.path}/settings.json'));await settings.set('allowNetwork',false);

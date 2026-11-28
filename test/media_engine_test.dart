@@ -49,6 +49,17 @@ void main(){
     expect(await (await voice.speak('hola','piper','alloy',File('${root.path}/speech.wav'))).length(),4);
     expect(await voice.transcribe(source,'whisper'),'hola');
   });
+  test('cancellation removes only own queued job and never interrupts another job',()async{
+    final calls=<String>[];
+    final server=await HttpServer.bind(InternetAddress.loopbackIPv4,0);addTearDown(()=>server.close(force:true));
+    server.listen((r)async{
+      calls.add(r.uri.path);
+      if(r.uri.path=='/queue'&&r.method=='GET'){r.response.write(jsonEncode({'queue_running':[[1,'someone-else']], 'queue_pending':[[2,'ours']]}));}
+      else {final body=jsonDecode(await utf8.decoder.bind(r).join());expect(body,{'delete':['ours']});}
+      await r.response.close();
+    });
+    final http=EngineHttp('http://127.0.0.1:${server.port}');addTearDown(http.close);final engine=ComfyEngine(http)..jobId='ours';await engine.cancel();expect(calls,['/queue','/queue']);expect(http.cancelled,true);
+  });
   test('network policy blocks media and gallery survives reload',()async{
     final http=EngineHttp('http://127.0.0.1:1',allowed:false);addTearDown(http.close);await expectLater(http.json('GET','/object_info'),throwsStateError);
     final root=await Directory.systemTemp.createTemp();addTearDown(()=>root.delete(recursive:true));final store=MediaStore(directory:root);final job=await store.create('music','piano');final data=await store.read(job);await store.record(job,{...data,'status':'Guardado','files':['music.flac']});expect((await MediaStore(directory:root).list()).single['kind'],'music');

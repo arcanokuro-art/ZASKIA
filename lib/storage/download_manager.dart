@@ -21,7 +21,7 @@ class ModelDownload {
   bool cancelled = false, finished = false, running = false, paused = false;
   ResumableTransfer? transfer;
   Map<String,dynamic> toJson() => {'repo':repo,'revision':revision,'metadata':metadata,
-    'destination':destination,'finished':finished,'status':status,'error':error};
+    'destination':destination,'finished':finished,'status':status,'error':error,'received':received,'total':total};
 }
 class DownloadManager extends ChangeNotifier {
   DownloadManager({this.stateFile, AppSettings? settings, this.root}) : settings = settings ?? AppSettings.instance {
@@ -51,6 +51,8 @@ class DownloadManager extends ChangeNotifier {
         t.status = t.finished ? raw['status'] as String : 'Pausada';
         t.error = raw['error'] as String? ?? '';
         t.paused = !t.finished;
+        t.received=(raw['received'] as num? ?? 0).toInt();t.total=(raw['total'] as num?)?.toInt();
+        if(t.total!=null&&t.total!>0)t.progress=t.received/t.total!;
         if (t.destination.isNotEmpty && await File('${t.destination}.part').exists()) t.received = await File('${t.destination}.part').length();
         tasks.add(t);
       }
@@ -81,14 +83,14 @@ class DownloadManager extends ChangeNotifier {
   }
   void pause(ModelDownload t) { if(t.finished)return; t.paused=true; t.status='Pausada'; t.transfer?.stop(); unawaited(_persist()); notifyListeners(); }
   void pauseAll() { for(final t in tasks.where((t)=>!t.finished)) { pause(t); } }
-  void resume(ModelDownload t) { if(t.running)return; t.paused=false; t.cancelled=false; t.finished=false; t.error=''; t.status='En cola'; unawaited(_persist()); _pump(); notifyListeners(); }
+  void resume(ModelDownload t) { if(t.running||tasks.any((other)=>!identical(other,t)&&other.id==t.id&&!other.finished))return; t.paused=false; t.cancelled=false; t.finished=false; t.error=''; t.status='En cola'; unawaited(_persist()); _pump(); notifyListeners(); }
   void cancel(ModelDownload t) { t.cancelled=true; t.paused=false; t.transfer?.stop(); if(!t.running){t.finished=true;t.status='Cancelada';unawaited(File('${t.destination}.part').delete().catchError((Object _) => File('${t.destination}.part')));} unawaited(_persist()); notifyListeners(); }
   void cancelAll() { for(final t in tasks.where((t)=>!t.finished)){cancel(t);} }
   Future<void> remove(ModelDownload t) async { if(t.running || !t.finished)return; tasks.remove(t); await _persist(); notifyListeners(); }
   void _pump() {
     if(!settings.get<bool>('allowNetwork')) { pauseAll(); return; }
     while(activeCount<settings.get<int>('maxDownloads')) {
-      final t=tasks.where((t)=>!t.running&&!t.finished&&!t.paused).firstOrNull;
+      final t=tasks.where((t)=>!t.running&&!t.finished&&!t.paused&&!tasks.any((other)=>other.running&&other.id==t.id)).firstOrNull;
       if(t==null)break;
       t.running=true; unawaited(_download(t));
     }
@@ -105,7 +107,7 @@ class DownloadManager extends ChangeNotifier {
         sha:lfs?['sha256'] as String?,gguf:t.name.toLowerCase().endsWith('.gguf'),
         progress:(n,total){t.received=n;t.total=total;t.progress=total==null?null:n/total;
           final now=DateTime.now();final ms=now.difference(last).inMilliseconds;
-          if(ms>=300){t.bytesPerSecond=(n-prior)*1000/ms;prior=n;last=now;notifyListeners();}});
+          if(ms>=300){t.bytesPerSecond=((n-prior)*1000/ms).clamp(0,double.infinity).toDouble();prior=n;last=now;notifyListeners();}});
       if(t.cancelled||t.paused)return;
       await partial.rename(t.destination); t.received=await File(t.destination).length(); t.total=t.received; t.finished=true;t.status='Guardado';t.progress=1;
     } catch(e) {

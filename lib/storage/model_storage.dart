@@ -30,7 +30,7 @@ class ModelStorage {
         if (f is! File)continue;
         final relative=f.path.substring(root.path.length+1);
         final managed=RegExp(r'^imports/model-[^/]+/[^/]+\.part$').hasMatch(relative) ||
-          RegExp(r'^[^/]+--[^/]+/[0-9a-fA-F]{40}/[^/]+\.gguf\.part$',caseSensitive:false).hasMatch(relative);
+          RegExp(r'^[^/]+--[^/]+/[0-9a-fA-F]{40}/.+\.part$',caseSensitive:false).hasMatch(relative);
         if (managed) { await f.delete(); count++; }
       }
     }
