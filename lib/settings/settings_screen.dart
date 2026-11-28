@@ -188,7 +188,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _action('Cancelar todas las descargas',Icons.cancel_outlined,()=>DownloadManager.instance.cancelAll()),
       ],['modelFolder','largeDownloadMB','maxDownloads']),
       _section('Motores y conexiones',[
-        _action('Guía de inicio',Icons.explore_outlined,()=>Navigator.push<void>(context,MaterialPageRoute(builder:(ctx)=>OnboardingScreen(onFinished:()async{Navigator.pop(ctx);})))),
+        _action('Guía de inicio',Icons.explore_outlined,()=>Navigator.push<void>(context,MaterialPageRoute(builder:(ctx)=>OnboardingScreen(runtime:widget.runtime,onFinished:()async{Navigator.pop(ctx);})))),
         _action('Gestor de motores',Icons.hub_outlined,()=>Navigator.push<void>(context,MaterialPageRoute(builder:(_)=>EnginesScreen(runtime:widget.runtime)))),
         _action('Configuración de ejecución',Icons.tune,()=>Navigator.push<void>(context,MaterialPageRoute(builder:(_)=>ExecutionScreen(runtime:widget.runtime)))),
         _action('Estudio multimedia',Icons.auto_awesome_outlined,()=>Navigator.push<void>(context,MaterialPageRoute(builder:(_)=>const MediaScreen()))),

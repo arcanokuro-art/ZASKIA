@@ -484,7 +484,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (_generating) { _notice('Detén la generación antes de cambiar el motor.'); return; }
     final page=switch(title){
       'Gestor de motores'=>EnginesScreen(runtime:_runtime),
-      'Guía de inicio'=>OnboardingScreen(onFinished:()async{Navigator.pop(context);}),
+      'Guía de inicio'=>OnboardingScreen(runtime:_runtime,onFinished:()async{Navigator.pop(context);}),
       'Descargas'=>const DownloadsScreen(),
       'Estudio multimedia'=>const MediaScreen(),
       'Configuración de ejecución'=>ExecutionScreen(runtime:_runtime),

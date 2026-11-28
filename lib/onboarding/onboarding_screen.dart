@@ -14,15 +14,16 @@ import '../engines/engines_screen.dart';
 import 'starter_catalog.dart';
 
 class OnboardingScreen extends StatefulWidget {
-  const OnboardingScreen({super.key,required this.onFinished,this.probe});
+  const OnboardingScreen({super.key,required this.onFinished,this.probe,this.runtime});
   final Future<void> Function() onFinished;
+  final ModelRuntime? runtime;
   final Future<HardwareSnapshot> Function()? probe;
   @override State<OnboardingScreen> createState()=>_OnboardingScreenState();
 }
 class _OnboardingScreenState extends State<OnboardingScreen> {
   HardwareSnapshot? _hardware;
   StarterModel _chosen=StarterCatalog.models.first;
-  final _runtime=ModelRuntime();
+  late final _runtime=widget.runtime??ModelRuntime();
   final downloads=DownloadManager.instance;
   ModelDownload? _task;
   List<File> _existing=[];
