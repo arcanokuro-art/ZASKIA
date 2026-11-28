@@ -160,10 +160,10 @@ class ModelRuntime {
       final request = await client.postUrl(Uri.parse('$address$endpoint'));
       request.headers.contentType = ContentType.json;
       request.write(jsonEncode(body));
-      final response = await request.close().timeout(const Duration(minutes: 3));
+      final response = await request.close().timeout(Duration(seconds:_preferences.get<int>('requestTimeoutSeconds')));
       if (response.statusCode >= 400) throw HttpException('El motor devolvió ${response.statusCode}.');
       await for (final line in response.transform(utf8.decoder).transform(const LineSplitter())
-          .timeout(const Duration(minutes: 3))) {
+          .timeout(Duration(seconds:_preferences.get<int>('requestTimeoutSeconds')))) {
         if (line.trim().isEmpty) continue;
         final data = jsonDecode(line) as Map<String, dynamic>;
         if (data['error'] != null) throw StateError(data['error'].toString());

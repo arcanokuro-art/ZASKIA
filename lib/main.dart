@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'settings/app_settings.dart';
 import 'storage/backup_service.dart';
+import 'storage/download_manager.dart';
 
 import 'workspace/projects_screen.dart';
 import 'platform/android_tablet.dart';
@@ -10,6 +11,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppSettings.instance.load();
   try {await AppSettings.instance.initializeHardwareDefaults();}catch(_){}
+  await DownloadManager.instance.initialize();
   runApp(const ZaskiaApp());
   BackupService.start();
 }

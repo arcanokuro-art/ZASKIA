@@ -1,12 +1,15 @@
 name: zaskia
 description: ZASKIA - IA local de Zaskar Startup
 publish_to: none
-version: 0.14.1+19
+version: 0.15.0+20
 environment:
   sdk: '>=3.4.0 <4.0.0'
 dependencies:
   flutter:
     sdk: flutter
+  open_filex: 4.7.0
+  flutter_markdown: 0.7.7+1
+  crypto: 3.0.6
   cupertino_icons: ^1.0.8
   file_picker: 10.2.0
   image_picker: 1.1.2

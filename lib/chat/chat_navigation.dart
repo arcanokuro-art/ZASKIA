@@ -73,6 +73,10 @@ class ChatNavigation extends StatelessWidget {
               SizedBox(height: 16),
             for (final entry in {
               'Modelos locales': Icons.memory_outlined,
+              'Descargas': Icons.download_outlined,
+              'Configuración de ejecución': Icons.tune,
+              'Estudio multimedia': Icons.auto_awesome_outlined,
+              'Importar conversación': Icons.file_upload_outlined,
               'Ajustes': Icons.settings_outlined,
             }.entries)
               ListTile(

@@ -1,3 +1,8 @@
+import '../media/media_screen.dart';
+import '../storage/downloads_screen.dart';
+import '../execution/execution_screen.dart';
+import 'context_builder.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import '../localization/strings.dart';
 import 'dart:io';
 import 'dart:convert';
@@ -38,9 +43,11 @@ class _Attachment {
 }
 
 class _Message {
-  _Message(this.text, this.attachments, this.mode, {this.note = '', this.answer = ''});
+  _Message(this.text, this.attachments, this.mode, {this.note = '', this.answer = '', this.status = '', this.model = '', this.elapsedMs = 0});
 
   String answer;
+  String status, model;
+  int elapsedMs;
 
   final String text;
   final List<_Attachment> attachments;
@@ -53,11 +60,12 @@ class _Message {
     _Mode.values.byName(json['mode'] as String),
     note: json['note'] as String? ?? '',
     answer: json['answer'] as String? ?? '',
+    status: json['status'] as String? ?? '', model: json['model'] as String? ?? '', elapsedMs: json['elapsedMs'] as int? ?? 0,
   );
 
   Map<String, Object> toJson() => {
     'text': text, 'attachments': attachments.map((item) => item.toJson()).toList(),
-    'mode': mode.name, 'note': note, 'answer': answer,
+    'mode': mode.name, 'note': note, 'answer': answer, 'status':status, 'model':model, 'elapsedMs':elapsedMs,
   };
 }
 
@@ -90,6 +98,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final _focus = FocusNode();
   final _picker = ImagePicker();
   final _messages = <_Message>[];
+  final _branches = <dynamic>[];
+  String _query = '';
+  bool _stopped = false;
   final _attachments = <_Attachment>[];
   _Mode _mode = _Mode.chat;
   bool _picking = false;
@@ -105,6 +116,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _note.text = data['note'] as String? ?? '';
     _mode = _Mode.values.byName(data['mode'] as String? ?? 'chat');
     _messages.addAll(_restore(data['messages'], _Message.fromJson));
+    _branches.addAll(data['branches'] as List? ?? []);
     _attachments.addAll(_restore(data['attachments'], _Attachment.fromJson));
     _references.addAll(_restore(data['references'], ProjectReference.fromJson));
     _recoverImages();
@@ -124,7 +136,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if((state==AppLifecycleState.paused || state==AppLifecycleState.hidden) && !AppSettings.instance.get<bool>('backgroundWork')) {
-      DownloadManager.instance.cancelAll();
+      DownloadManager.instance.pauseAll();
       _runtime.suspend().catchError((Object e)=>DiagnosticLog.record('suspend',e));
     }
   }
@@ -142,6 +154,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         'note': _note.text,
         'mode': _mode.name,
         'messages': _messages.map((item) => item.toJson()).toList(),
+        'branches': _branches,
         'attachments': _attachments.map((item) => item.toJson()).toList(),
         'references': _references.map((item) => item.toJson()).toList(),
       }), preserveOptions: true);
@@ -300,7 +313,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (!_canSend) return;
     final text = _composer.text.trim();
     if (_mode != _Mode.chat) {
-      _notice('Este piloto usa modelos de texto. El motor de imagen se conectará por separado.');
+      await Navigator.push<void>(context,MaterialPageRoute(builder:(_)=>MediaScreen(initialPrompt:text,initialImage:_attachments.where((a)=>a.image).firstOrNull?.path)));
       return;
     }
     if (text.length > 16000) {
@@ -329,20 +342,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     });
     _focus.unfocus();
     await _save();
-    if (!_runtime.ready || !mounted) return;
-    setState(() => _generating = true);
+    await _generate(message);
+  }
+
+  Future<void> _generate(_Message message) async {
+    if (!_runtime.ready || !mounted) { _notice('Modelo local sin configurar'); return; }
+    final clock=Stopwatch()..start();
+    _stopped=false;
+    setState(() { _generating=true; message.status='Generando…'; message.model=_runtime.selectedName; });
     try {
-      final settings = AppSettings.instance;
-      final history = <Map<String, String>>[];
-      final system = StringBuffer(settings.get<String>('systemPrompt'));
+      final settings=AppSettings.instance;
+      final system=StringBuffer(settings.get<String>('systemPrompt'));
       if(settings.get<bool>('remember') && settings.get<String>('memory').isNotEmpty) system.writeln('\nUser-provided memory: ${settings.get<String>('memory')}');
-      final language = settings.get<String>('responseLanguage');
+      final language=settings.get<String>('responseLanguage');
       if(language!='auto')system.writeln('\nRespond in: $language');
-      if(system.isNotEmpty) history.add({'role':'system','content':system.toString()});
-      for (final turn in _messages.reversed.take(6).toList().reversed) {
-        history.add({'role': 'user', 'content': turn.text});
-        if (turn.answer.isNotEmpty) history.add({'role': 'assistant', 'content': turn.answer});
-      }
+      final text=message.text;
+      final attachments=message.attachments;
       final material = StringBuffer();
       if (message.note.isNotEmpty) material.writeln('Nota del proyecto: ${message.note}');
       for (final item in settings.get<bool>('allowAttachments') ? attachments : <_Attachment>[]) {
@@ -356,23 +371,60 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           }
         }
       }
-      history.last['content'] = '$text\n\n$material';
+      final context=ChatContext.build(system:system.toString(),turns:[
+        for(final turn in _messages){'user':identical(turn,message)?'$text\n\n$material':turn.text,'assistant':identical(turn,message)?'':turn.answer}
+      ],context:settings.get<int>('context'),maxTokens:settings.get<int>('maxTokens'),maxTurns:settings.get<int>('historyTurns'));
+      final history=context.messages;
+      if(context.omittedTurns>0)_notice('Se omitieron turnos anteriores para respetar el contexto.');
+      var completed=false;
       await for (final data in _runtime.stream('/api/chat', {
         'model': _runtime.model, 'messages': history, 'stream': true,
       })) {
         if (!mounted) break;
+        if(data['done']==true)completed=true;
         final token = data['message']?['content'] as String? ?? '';
         setState(() => message.answer += token);
       }
+      message.status=_stopped?'Detenida':completed?'Completada':'Interrumpida';
     } catch (error) {
+      message.status=_stopped?'Detenida':'Error';
       await DiagnosticLog.record('generation',error);
-      if (mounted) _notice('La generación terminó. Revisa la conexión si no recibiste respuesta.');
+      if (mounted && !_stopped) _notice(error is FormatException?error.message:'La generación terminó. Revisa la conexión si no recibiste respuesta.');
     } finally {
       if (mounted) {
+        message.elapsedMs=clock.elapsedMilliseconds;
         setState(() => _generating = false);
         await _save();
       }
     }
+  }
+
+  List<_Message> get _visibleMessages=>_query.isEmpty?_messages:_messages.where((m)=>'${m.text} ${m.answer}'.toLowerCase().contains(_query.toLowerCase())).toList();
+  Future<void> _revise(_Message message,{bool edit=false})async{
+    final c=TextEditingController(text:message.text);
+    final accepted=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(
+      title:Text(S.t(edit?'Editar mensaje':'Regenerar respuesta')),
+      content:SizedBox(width:560,child:Column(mainAxisSize:MainAxisSize.min,children:[Text(S.t('Se guardará una versión de la conversación antes de reemplazar este turno y los posteriores.')),if(edit)TextField(controller:c,maxLines:5)])),
+      actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:Text(S.t('Cancelar'))),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:Text(S.t('Continuar')))]));
+    final text=c.text.trim();c.dispose();if(accepted!=true||text.isEmpty||!mounted||_generating)return;
+    _branches.add({'created':DateTime.now().millisecondsSinceEpoch,'messages':_messages.map((m)=>m.toJson()).toList()});
+    final index=_messages.indexOf(message);final next=_Message(edit?text:message.text,message.attachments,message.mode,note:message.note);
+    setState((){_messages.removeRange(index,_messages.length);_messages.add(next);});await _save();await _generate(next);
+  }
+  Future<void> _exportConversation()async{
+    final folder=await FilePicker.platform.getDirectoryPath();if(folder==null)return;
+    try{final name=widget.project?.name??'ZASKIA';final stamp=DateTime.now().millisecondsSinceEpoch;final messages=_messages.map((m)=>m.toJson()).toList();
+      await File('$folder/ZASKIA-$stamp.json').writeAsString(jsonEncode({'schema':1,'name':name,'messages':messages,'branches':_branches}),flush:true);
+      await File('$folder/ZASKIA-$stamp.md').writeAsString(ConversationExport.markdown(name,messages),flush:true);
+      if(mounted)_notice('Guardado');
+    }catch(_){if(mounted)_notice('No se pudo completar la operación.');}
+  }
+  Future<void> _importConversation()async{
+    if(_generating||widget.store==null)return;
+    final picked=await FilePicker.platform.pickFiles(type:FileType.custom,allowedExtensions:['json']);final path=picked?.files.single.path;if(path==null)return;
+    try{if(await File(path).length()>16*1024*1024)throw const FormatException('Archivo demasiado grande.');final messages=ConversationExport.parse(await File(path).readAsString());
+      final p=await widget.store!.create(S.t('Conversación importada'));await widget.store!.save(Project(p.id,p.name,p.updated,{'messages':messages}));widget.onSelectConversation?.call(p.id);
+    }catch(_){if(mounted)_notice('No se pudo importar la conversación.');}
   }
 
   Future<void> _loadRuntime() async {
@@ -418,6 +470,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _openInfo(String title) {
+    final page=switch(title){
+      'Descargas'=>const DownloadsScreen(),
+      'Estudio multimedia'=>const MediaScreen(),
+      'Configuración de ejecución'=>ExecutionScreen(runtime:_runtime),
+      _=>null,
+    };
+    if(page!=null){Navigator.push<void>(context,MaterialPageRoute(builder:(_)=>page));return;}
+    if(title=='Importar conversación'){_importConversation();return;}
+
     if (_generating) {
       _notice('Detén la generación antes de cambiar el motor.');
       return;
@@ -479,6 +540,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: 0.6,
       )),
       actions: [
+        IconButton(tooltip:S.t('Buscar en conversación'),onPressed:()async{
+          final c=TextEditingController(text:_query);final value=await showDialog<String>(context:context,builder:(ctx)=>AlertDialog(title:Text(S.t('Buscar en conversación')),content:TextField(controller:c),actions:[TextButton(onPressed:()=>Navigator.pop(ctx,''),child:Text(S.t('Limpiar'))),TextButton(onPressed:()=>Navigator.pop(ctx,c.text),child:Text(S.t('Buscar')))]));c.dispose();if(value!=null&&mounted)setState(()=>_query=value);
+        },icon:const Icon(Icons.search)),
+        IconButton(tooltip:S.t('Exportar conversación'),onPressed:_generating?null:_exportConversation,icon:const Icon(Icons.file_download_outlined)),
         if (_inProject)
           Builder(builder: (context) => IconButton(
             tooltip: S.t('Referencias'),
@@ -521,9 +586,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     reverse: true,
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
                     keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                    itemCount: _messages.length,
+                    itemCount: _visibleMessages.length,
                     itemBuilder: (context, index) =>
-                        _message(_messages[_messages.length - 1 - index]),
+                        _message(_visibleMessages[_visibleMessages.length - 1 - index]),
                   ),
             ),
             _input(context),
@@ -575,10 +640,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         SizedBox(height: 12),
         Align(
           alignment: Alignment.centerLeft,
-          child: message.answer.isNotEmpty ? SelectableText(message.answer) : Text(
+          child: message.answer.isNotEmpty ? MarkdownBody(data:message.answer,selectable:true) : Text(
             _generating && identical(message, _messages.last) ? S.t('Generando…') : !_runtime.ready ? S.t('Modelo local sin configurar') : S.t('Sin respuesta'),
             style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13)),
         ),
+        if(AppSettings.instance.get<bool>('showGenerationStats')&&message.model.isNotEmpty)Text('${message.model} · ${S.t(message.status)} · ${(message.elapsedMs/1000).toStringAsFixed(1)} s',style:TextStyle(color:colors.onSurfaceVariant,fontSize:12)),
+        Wrap(spacing:4,children:[
+          IconButton(tooltip:S.t('Copiar respuesta'),onPressed:message.answer.isEmpty?null:()=>Clipboard.setData(ClipboardData(text:message.answer)),icon:const Icon(Icons.copy,size:18)),
+          IconButton(tooltip:S.t('Editar mensaje'),onPressed:_generating?null:()=>_revise(message,edit:true),icon:const Icon(Icons.edit_outlined,size:18)),
+          IconButton(tooltip:S.t('Regenerar respuesta'),onPressed:_generating||!_runtime.ready?null:()=>_revise(message),icon:const Icon(Icons.refresh,size:18)),
+        ]),
       ]),
     );
   }
@@ -691,7 +762,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 valueListenable: _composer,
                 builder: (context, value, child) => IconButton.filled(
                   tooltip: S.t(_generating ? 'Detener' : 'Enviar'),
-                  onPressed: _generating ? _runtime.stop : _canSend ? _send : null,
+                  onPressed: _generating ? (){_stopped=true;_runtime.stop();} : _canSend ? _send : null,
                   icon: Icon(_generating ? Icons.stop_rounded : Icons.arrow_upward_rounded),
                 ),
               ),

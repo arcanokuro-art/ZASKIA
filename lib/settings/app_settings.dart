@@ -13,6 +13,9 @@ class AppSettings extends ChangeNotifier {
     'language': 'es', 'theme': 'system', 'textScale': 1.0, 'compact': false,
     'contrast': false, 'reduceMotion': false, 'modelFolder': '', 'modelFolders':<dynamic>[], 'backupFolder': '',
     'threads': 4, 'context': 2048, 'maxTokens': 512, 'temperature': 0.7,
+    'historyTurns': 20, 'requestTimeoutSeconds': 180, 'showGenerationStats': true,
+    'comfyAddress': 'http://127.0.0.1:8188', 'voiceAddress': 'http://127.0.0.1:8080',
+    'speechModel': '', 'transcriptionModel': '', 'voiceName': 'alloy',
     'idleMinutes': 10, 'backgroundWork': false, 'systemPrompt': '',
     'responseLanguage': 'auto', 'enterSends': false, 'remember': false, 'memory': '',
     'startup': 'last', 'lastProject': '', 'autoLoad': false,
@@ -48,7 +51,7 @@ class AppSettings extends ChangeNotifier {
     }
     for (final entry in <String, List<num>>{'threads':[1,64], 'context':[512,32768], 'maxTokens':[32,8192],
       'temperature':[0,2], 'textScale':[0.8,1.8], 'idleMinutes':[0,120], 'backupHours':[0,168],
-      'maxDownloads':[1,3], 'largeDownloadMB':[100,20000], 'lastBackup':[0,9000000000000000]}.entries) {
+      'historyTurns':[1,100], 'requestTimeoutSeconds':[30,1800], 'maxDownloads':[1,3], 'largeDownloadMB':[100,20000], 'lastBackup':[0,9000000000000000]}.entries) {
       final value = (result[entry.key] as num).clamp(entry.value[0], entry.value[1]);
       result[entry.key] = ['temperature','textScale'].contains(entry.key) ? value.toDouble() : value.toInt();
     }

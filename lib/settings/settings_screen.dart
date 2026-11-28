@@ -1,3 +1,6 @@
+import '../media/media_screen.dart';
+import '../storage/downloads_screen.dart';
+import '../execution/execution_screen.dart';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -183,6 +186,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _action('Cancelar todas las descargas',Icons.cancel_outlined,()=>DownloadManager.instance.cancelAll()),
       ],['modelFolder','largeDownloadMB','maxDownloads']),
       _section('Motores y conexiones',[
+        _action('Configuración de ejecución',Icons.tune,()=>Navigator.push<void>(context,MaterialPageRoute(builder:(_)=>ExecutionScreen(runtime:widget.runtime)))),
+        _action('Estudio multimedia',Icons.auto_awesome_outlined,()=>Navigator.push<void>(context,MaterialPageRoute(builder:(_)=>const MediaScreen()))),
+        _action('Descargas',Icons.download_outlined,()=>Navigator.push<void>(context,MaterialPageRoute(builder:(_)=>const DownloadsScreen()))),
         ListTile(title:Text(S.t('Motor integrado')),subtitle:Text('llama.cpp · CPU · GGUF')),
         _action('Configurar Ollama y modelos',Icons.settings_input_component,()=>Navigator.push(context,MaterialPageRoute<void>(builder:(_)=>ModelsScreen(runtime:widget.runtime)))),
         _action('Comprobar conexión Ollama',Icons.network_check,()=>_run(()async{await widget.runtime.models();})),

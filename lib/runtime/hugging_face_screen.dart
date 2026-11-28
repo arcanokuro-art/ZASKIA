@@ -63,16 +63,16 @@ class _HuggingFaceScreenState extends State<HuggingFaceScreen> {
       final detail = await _json(Uri.https('huggingface.co', '/api/models/$id', {'blobs': 'true'}))
           as Map<String, dynamic>;
       final files = (detail['siblings'] as List? ?? []).cast<Map<String, dynamic>>()
-          .where((item) => (item['rfilename'] as String).endsWith('.gguf')).toList();
+          .where((item) => RegExp(r'\.(gguf|safetensors|bin|onnx|pt|pth|json|model|txt|yaml|yml)$',caseSensitive:false).hasMatch(item['rfilename'] as String)).toList();
       if (!mounted) return;
       final selected = await showDialog<Map<String, dynamic>>(
         context: context,
         builder: (context) => AlertDialog(
           title: Text(id),
           content: SizedBox(width: 560, child: files.isEmpty
-            ? Text(S.t('Este repositorio no contiene archivos GGUF individuales. Este piloto descarga archivos GGUF públicos.'))
+            ? Text(S.t('Este repositorio no contiene archivos compatibles para descargar.'))
             : ListView(shrinkWrap: true, children: [
-                Text(S.t('Los GGUF de texto de un solo archivo se cargan desde Ejecutar en este dispositivo.')),
+                Text(S.t('Los GGUF de texto se cargan en el motor integrado. Otros formatos necesitan un motor compatible y pueden requerir varios archivos.')),
                 for (final file in files)
                   ListTile(
                     title: Text(file['rfilename'] as String),
@@ -107,7 +107,7 @@ class _HuggingFaceScreenState extends State<HuggingFaceScreen> {
       ));
       if (approved != true) return;
     }
-    _downloads.enqueue(id,revision,metadata);
+    await _downloads.enqueue(id,revision,metadata);
     if(mounted)setState(()=>_status='Descarga añadida a la cola');
   }
 
