@@ -44,6 +44,9 @@ if 'Configuración modular' not in body:
 if 'Estudio multimedia' not in body:
     body += '\n\nEstudio multimedia: adaptadores ComfyUI (imagen, música y video) y voz LocalAI/compatible. Los motores y modelos multimedia se instalan por separado. Descargas reanudables y verificadas, controles de ejecución y conversaciones con versiones, Markdown e importación/exportación.'
     request(base + '/releases/' + str(release['id']), json.dumps({'body': body}).encode(), method='PATCH')
+if 'Guía de inicio' not in body:
+    body += '\n\nGuía de inicio, compatibilidad orientativa de modelos y gestor de motores. Linux permite instalar, iniciar y actualizar Ollama/ComfyUI; los pesos se descargan aparte. Android usa texto integrado o conexiones a otro equipo. Consulta docs/GETTING_STARTED.md en la rama de desarrollo.'
+    request(base + '/releases/' + str(release['id']), json.dumps({'body': body}).encode(), method='PATCH')
 for path in sorted(glob.glob('ZASKIA-*-linux-amd64.deb*')):
     name = os.path.basename(path)
     for asset in release.get('assets', []):
