@@ -43,5 +43,6 @@ void main(){
     final restored=DownloadManager(stateFile:state,settings:settings,root:root);addTearDown(restored.dispose);await restored.initialize();
     expect(restored.tasks.single.paused,true);expect(restored.activeCount,0);
     await expectLater(manager.enqueue('org/model','a'*40,{'rfilename':'../secret'}),throwsFormatException);
+    await manager.flush();await restored.flush();
   });
 }

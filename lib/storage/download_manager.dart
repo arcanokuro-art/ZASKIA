@@ -86,6 +86,7 @@ class DownloadManager extends ChangeNotifier {
   void resume(ModelDownload t) { if(t.running||tasks.any((other)=>!identical(other,t)&&other.id==t.id&&!other.finished))return; t.paused=false; t.cancelled=false; t.finished=false; t.error=''; t.status='En cola'; unawaited(_persist()); _pump(); notifyListeners(); }
   void cancel(ModelDownload t) { t.cancelled=true; t.paused=false; t.transfer?.stop(); if(!t.running){t.finished=true;t.status='Cancelada';unawaited(File('${t.destination}.part').delete().catchError((Object _) => File('${t.destination}.part')));} unawaited(_persist()); notifyListeners(); }
   void cancelAll() { for(final t in tasks.where((t)=>!t.finished)){cancel(t);} }
+  Future<void> flush() => _writes;
   Future<void> remove(ModelDownload t) async { if(t.running || !t.finished)return; tasks.remove(t); await _persist(); notifyListeners(); }
   void _pump() {
     if(!settings.get<bool>('allowNetwork')) { pauseAll(); return; }
@@ -116,7 +117,8 @@ class DownloadManager extends ChangeNotifier {
       t.running=false;t.transfer=null;t.bytesPerSecond=0;
       if(t.cancelled){t.finished=true;t.status='Cancelada';if(await partial.exists())await partial.delete();}
       if(t.paused)t.status='Pausada';
-      await _persist();notifyListeners();_pump();
+      try{await _persist();}catch(_){t.error='No se pudo guardar el estado de descargas.';}
+      notifyListeners();_pump();
     }
   }
   @override
