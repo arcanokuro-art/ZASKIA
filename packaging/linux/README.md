@@ -1,11 +1,11 @@
-ZASKIA para Debian — piloto 0.16.0
+ZASKIA para Debian — piloto 0.16.1
 
 Requisitos: Debian 12 o posterior, escritorio gráfico, procesador x86-64
 (Intel/AMD de 64 bits). Esta compilación utiliza CPU; no requiere CUDA.
 No es un paquete ARM64 ni de 32 bits. La RAM necesaria depende del modelo.
 
 Instalación desde la carpeta donde descargaste el archivo:
-  sudo apt install ./ZASKIA-0.16.0-linux-amd64.deb
+  sudo apt install ./ZASKIA-0.16.1-linux-amd64.deb
 
 Abrir: menú de aplicaciones → ZASKIA, o ejecutar `zaskia` en una terminal.
 Desinstalar: sudo apt remove zaskia
@@ -24,7 +24,7 @@ El estudio multimedia controla ComfyUI para imagen, música y video y LocalAI/vo
 Motor: llama.cpp v1.0.0, commit b1b770d90d94cad9e9ea5b993bdbc383a522fb28,
 MIT. Véanse llama.cpp-copyright y third-party-licenses en este directorio.
 
-0.16.0: Configuración → Mi equipo → Hardware y prueba de rendimiento.
+0.16.1: Configuración → Mi equipo → Hardware y prueba de rendimiento.
 Se detectan ABI del proceso, núcleos y RAM. Los valores iniciales de instalaciones
 nuevas son conservadores; las preferencias existentes se conservan. Puedes aplicar
 las recomendaciones manualmente y exportar las mediciones a JSON.

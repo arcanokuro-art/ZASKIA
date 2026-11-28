@@ -71,6 +71,8 @@ class ModelInfo {
           RegExp(r'-\d{5}-of-\d{5}\.gguf$', caseSensitive: false).hasMatch(file.path)) {
         engine = 'Modelo dividido · carga pendiente de soporte';
       }
+    } on FormatException catch(error) {
+      metadata['Lectura']=error.message=='Límite de metadatos'?'Límite de inspección alcanzado':'Metadatos incompletos o no reconocidos';
     } on Exception {
       metadata['Lectura'] = 'Metadatos incompletos o no reconocidos';
     } finally {
@@ -93,8 +95,8 @@ class _GgufReader {
 
   Future<Uint8List> read(int count) async {
     final position = await file.position();
-    if (++operations > 2000000 || count < 0 || count > 4000000 ||
-        position + count > length || position + count > 32000000) {
+    if(count<0||position+count>length)throw const FormatException('Archivo truncado');
+    if (++operations > 2000000 || count > 4000000 || position + count > 32000000) {
       throw const FormatException('Límite de metadatos');
     }
     final bytes = await file.read(count);
@@ -115,7 +117,8 @@ class _GgufReader {
 
   Future<void> skip(int count) async {
     final next = await file.position() + count;
-    if (++operations > 2000000 || count < 0 || next > length || next > 32000000) {
+    if(count<0||next>length)throw const FormatException('Archivo truncado');
+    if (++operations > 2000000 || next > 32000000) {
       throw const FormatException('Límite de metadatos');
     }
     await file.setPosition(next);

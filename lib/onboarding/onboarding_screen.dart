@@ -44,7 +44,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final detail=await StarterCatalog.resolve(_chosen,allowNetwork:AppSettings.instance.get<bool>('allowNetwork'));
     if(!mounted)return;
     final metadata=Map<String,dynamic>.from(detail['metadata'] as Map);final bytes=(metadata['size'] as num? ?? (metadata['lfs'] as Map?)?['size'] as num?)?.toInt();
-    final accepted=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(title:Text(S.t('Confirmar descarga')),content:Text('${_chosen.name}\n${S.t('Tamaño')}: ${ModelCompatibility.bytes(bytes)}\n${S.t('Licencia')}: ${detail['license']}\n\n${S.t('Es un modelo de texto pequeño para comenzar. La calidad y la velocidad dependen del modelo y de tu equipo.')}'),actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:Text(S.t('Cancelar'))),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:Text(S.t('Descargar')))]));
+    final estimate=bytes==null?null:ModelCompatibility.estimateMemory(bytes,AppSettings.instance.get<int>('context'));
+    final free=_hardware?.availableMemory;
+    final memoryNote=estimate!=null&&free!=null&&estimate>free*0.8?'\n\n${S.t('La memoria libre parece insuficiente. Prueba un modelo menor o un contexto más corto.')}':'';
+    final accepted=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(title:Text(S.t('Confirmar descarga')),content:Text('${_chosen.name}\n${S.t('Tamaño')}: ${ModelCompatibility.bytes(bytes)}\n${S.t('Licencia')}: ${detail['license']}\n${S.t('RAM estimada')}: ${ModelCompatibility.bytes(estimate)}$memoryNote\n\n${S.t('Es un modelo de texto pequeño para comenzar. La calidad y la velocidad dependen del modelo y de tu equipo.')}'),actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:Text(S.t('Cancelar'))),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:Text(S.t('Descargar')))]));
     if(accepted!=true)return;
     await downloads.enqueue(_chosen.repo,detail['revision'] as String,metadata);
     if(mounted)setState((){_task=downloads.tasks.lastWhere((t)=>t.repo==_chosen.repo&&t.name==_chosen.filename);_step=2;});

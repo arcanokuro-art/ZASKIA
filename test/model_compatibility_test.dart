@@ -16,6 +16,7 @@ void main(){
     for(final m in [model(architecture:'bert'),model(extra:{'Número de partes':'2'}),model(extra:{'Lectura':'Error'})]){expect(ModelCompatibility.assess(m,hardware()).blocked,true);}
     expect(ModelCompatibility.assess(model(),hardware(abi:'linux_arm64')).blocked,true);
     expect(ModelCompatibility.assess(model(path:'weights.safetensors'),hardware()).state,'external');
+    expect(ModelCompatibility.assess(model(extra:{'Lectura':'Límite de inspección alcanzado'}),hardware()).state,'unknown');
   });
   test('small starter is suggested under low or unknown memory without promising fit',(){
     expect(StarterCatalog.suggest(hardware(available:800000000)),StarterCatalog.models.first);
