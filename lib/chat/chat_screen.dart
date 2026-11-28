@@ -1,3 +1,5 @@
+import '../onboarding/onboarding_screen.dart';
+import '../engines/engines_screen.dart';
 import '../media/media_screen.dart';
 import '../storage/downloads_screen.dart';
 import '../execution/execution_screen.dart';
@@ -481,6 +483,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _openInfo(String title) {
     if (_generating) { _notice('Detén la generación antes de cambiar el motor.'); return; }
     final page=switch(title){
+      'Gestor de motores'=>EnginesScreen(runtime:_runtime),
+      'Guía de inicio'=>OnboardingScreen(onFinished:()async{Navigator.pop(context);}),
       'Descargas'=>const DownloadsScreen(),
       'Estudio multimedia'=>const MediaScreen(),
       'Configuración de ejecución'=>ExecutionScreen(runtime:_runtime),

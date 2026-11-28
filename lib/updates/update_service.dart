@@ -3,7 +3,7 @@ import 'dart:io';
 import '../settings/app_settings.dart';
 
 class UpdateService {
-  static const version = '0.15.1';
+  static const version = '0.16.0';
   static const releases = 'https://github.com/arcanokuro-art/ZASKIA/releases';
   static Future<Map<String,dynamic>?> check() async {
     if(!AppSettings.instance.get<bool>('allowNetwork')) throw StateError('Acceso a red desactivado.');

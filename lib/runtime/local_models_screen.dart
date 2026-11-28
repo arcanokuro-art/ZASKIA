@@ -1,3 +1,5 @@
+import '../hardware/hardware_snapshot.dart';
+import 'model_compatibility.dart';
 import '../localization/strings.dart';
 import '../settings/app_settings.dart';
 import 'dart:io';
@@ -21,6 +23,7 @@ class _LocalModelsScreenState extends State<LocalModelsScreen> {
   List<File> _files = [];
   bool _busy = false;
   Map<String, ModelInfo> _details = {};
+  Map<String,ModelCompatibility> _compatibility={};
   List<Map<String, dynamic>> _remote = [];
   String? _remoteStatus;
   String _status = 'Selecciona un GGUF de texto para ejecutarlo en este dispositivo.';
@@ -32,11 +35,14 @@ class _LocalModelsScreenState extends State<LocalModelsScreen> {
   }
 
   Future<void> _refresh() async {
-    final files = await _library.list();
+    final files = await _library.list(includeExternal:true);
+    final hardware=await HardwareProbe.read();
+    final compatibility=<String,ModelCompatibility>{};
     final details = <String, ModelInfo>{};
     for (final file in files) {
       try {
         details[file.path] = await ModelInfo.inspect(file);
+        compatibility[file.path]=ModelCompatibility.assess(details[file.path]!,hardware,context:AppSettings.instance.get<int>('context'));
       } on Exception {
         // A download or import may have changed since the scan.
       }
@@ -53,6 +59,7 @@ class _LocalModelsScreenState extends State<LocalModelsScreen> {
     if (mounted) setState(() {
       _files = files;
       _details = details;
+      _compatibility=compatibility;
       _remote = remote;
       _remoteStatus = remoteStatus;
     });
@@ -82,6 +89,12 @@ class _LocalModelsScreenState extends State<LocalModelsScreen> {
           '${S.t('Formato')}\n${S.t(info.format)}',
           '${S.t('Capacidades')}\n${S.t(info.capabilities)}',
           '${S.t('Motor')}\n${S.t(info.engine)}',
+          if(_compatibility[file.path]!=null)...[
+            S.t(_compatibility[file.path]!.reason),
+            '${S.t('RAM estimada')}: ${ModelCompatibility.bytes(_compatibility[file.path]!.estimatedBytes)}',
+            '${S.t('RAM disponible')}: ${ModelCompatibility.bytes(_compatibility[file.path]!.availableBytes)}',
+            S.t('Estimación orientativa, no garantiza que el modelo cargue.'),
+          ],
           for (final entry in info.metadata.entries) '${S.t(entry.key)}\n${entry.key=='Lectura'?S.t(entry.value):entry.value}',
         ].join('\n\n')),
       )),
@@ -151,9 +164,15 @@ class _LocalModelsScreenState extends State<LocalModelsScreen> {
               : widget.runtime.localPath == file.path && widget.runtime.useLocal
                 ? S.t('Seleccionado para el chat') : S.t('Disponible en el dispositivo'),
             S.t(_details[file.path]?.capabilities ?? 'Capacidades por comprobar'),
+            if(_compatibility[file.path]!=null)S.t(_compatibility[file.path]!.reason),
           ].join('\n')),
           trailing: FilledButton(
-            onPressed: _busy || !_library.singleFile(file) ? null : () => _run(() async {
+            onPressed: _busy || !_library.singleFile(file) || !file.path.toLowerCase().endsWith('.gguf') || _compatibility[file.path]?.blocked==true ? null : () => _run(() async {
+              final check=_compatibility[file.path];
+              if(check?.state=='warning'){
+                final accepted=await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(title:Text(S.t('Revisar memoria antes de cargar')),content:Text(S.t(check!.reason)),actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:Text(S.t('Cancelar'))),TextButton(onPressed:()=>Navigator.pop(ctx,true),child:Text(S.t('Intentar cargar')))]));
+                if(accepted!=true||!mounted)return;
+              }
               setState(() => _status = S.f('Cargando {name}…',{'name':_library.name(file)}));
               await widget.runtime.selectLocal(file.path);
               if (mounted) setState(() => _status = 'Listo. Regresa al chat para conversar sin conexión.');

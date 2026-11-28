@@ -1,4 +1,6 @@
-# ZASKIA 0.15.1
+# ZASKIA 0.16.0
+
+Guía de primer inicio, compatibilidad orientativa y gestión de motores. [Guía de inicio y alcance de las instalaciones](docs/GETTING_STARTED.md).
 
 Descargas reanudables, configuración de ejecución, conversaciones con versiones y estudio multimedia modular. [Guía y alcance real de los motores](docs/MULTIMEDIA.md).
 

@@ -13,6 +13,7 @@ cp -a "$bundle/." "$stage/usr/lib/zaskia/"
 cp -a build/llama/bin/*.so* "$stage/usr/lib/zaskia/"
 install -m755 build/llama/bin/llama-server "$stage/usr/lib/zaskia/llama-server"
 cc -O2 -Wall -Wextra -Werror packaging/linux/engine.c -o "$stage/usr/lib/zaskia/zaskia-engine"
+cc -O2 -Wall -Wextra -Werror packaging/linux/managed-engine.c -o "$stage/usr/lib/zaskia/zaskia-managed-engine"
 ln -s ../lib/zaskia/zaskia "$stage/usr/bin/zaskia"
 install -m644 packaging/linux/zaskia.desktop "$stage/usr/share/applications/"
 install -m644 packaging/linux/zaskia.svg "$stage/usr/share/icons/hicolor/scalable/apps/"
@@ -45,7 +46,7 @@ Priority: optional
 Architecture: amd64
 Maintainer: Zaskar Startup <zaskarstartup@users.noreply.github.com>
 Depends: $deps
-Recommends: fonts-noto-cjk
+Recommends: fonts-noto-cjk, git, python3-venv, zstd
 Installed-Size: $(du -sk "$stage/usr" | cut -f1)
 Homepage: https://github.com/arcanokuro-art/ZASKIA
 Description: ZASKIA - ejecutor local de modelos de IA

@@ -19,6 +19,10 @@ class ModelInfo {
     final bytes = await file.length();
     final metadata = <String, String>{};
     var format = 'Archivo GGUF sin verificar';
+    if(!file.path.toLowerCase().endsWith('.gguf')) {
+      final ext=file.path.split('.').last.toLowerCase();
+      return ModelInfo(path:file.path,bytes:bytes,format:ext.toUpperCase(),capabilities:'Capacidades según el motor externo',engine:'Motor externo',metadata:{});
+    }
     var capabilities = 'Por comprobar';
     var engine = 'Compatibilidad por comprobar';
     RandomAccessFile? input;

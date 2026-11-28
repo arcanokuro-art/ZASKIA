@@ -6,12 +6,12 @@ class DownloadedModels {
   DownloadedModels({this.directory});
   final Directory? directory;
 
-  Future<List<File>> list() async {
+  Future<List<File>> list({bool includeExternal=false}) async {
     final files = <File>[];
     for (final root in directory != null ? [directory!] : await ModelStorage.roots()) {
     if (!await root.exists()) continue;
     await for (final entry in root.list(recursive: true, followLinks: false)) {
-      if (entry is File && entry.path.toLowerCase().endsWith('.gguf')) files.add(entry);
+      if (entry is File && (entry.path.toLowerCase().endsWith('.gguf') || includeExternal && RegExp(r'\.(safetensors|onnx|bin|pt|pth|model)$',caseSensitive:false).hasMatch(entry.path))) files.add(entry);
     }
     }
     files.sort((a, b) => a.path.compareTo(b.path));

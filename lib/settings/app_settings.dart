@@ -10,7 +10,7 @@ class AppSettings extends ChangeNotifier {
   static final instance = AppSettings();
   final File? file;
   static const defaults = <String, dynamic>{
-    'language': 'es', 'theme': 'system', 'textScale': 1.0, 'compact': false,
+    'onboardingComplete': false, 'language': 'es', 'theme': 'system', 'textScale': 1.0, 'compact': false,
     'contrast': false, 'reduceMotion': false, 'modelFolder': '', 'modelFolders':<dynamic>[], 'backupFolder': '',
     'threads': 4, 'context': 2048, 'maxTokens': 512, 'temperature': 0.7,
     'historyTurns': 20, 'requestTimeoutSeconds': 180, 'showGenerationStats': true,

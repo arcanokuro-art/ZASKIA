@@ -1,10 +1,12 @@
+import 'dart:async';
+import 'engines/engine_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'settings/app_settings.dart';
 import 'storage/backup_service.dart';
 import 'storage/download_manager.dart';
 
-import 'workspace/projects_screen.dart';
+import 'onboarding/start_screen.dart';
 import 'platform/android_tablet.dart';
 
 Future<void> main() async {
@@ -12,6 +14,7 @@ Future<void> main() async {
   await AppSettings.instance.load();
   try {await AppSettings.instance.initializeHardwareDefaults();}catch(_){}
   await DownloadManager.instance.initialize();
+  WidgetsBinding.instance.addObserver(_EngineLifetime());
   runApp(const ZaskiaApp());
   BackupService.start();
 }
@@ -35,7 +38,7 @@ class ZaskiaApp extends StatelessWidget {
     debugShowCheckedModeBanner: false,
     theme: _theme(Brightness.light),
     darkTheme: _theme(Brightness.dark),
-    home: const AndroidTablet(child: ProjectsScreen()),
+    home: const AndroidTablet(child: StartScreen()),
   ));
 
   ThemeData _theme(Brightness brightness) {
@@ -89,5 +92,11 @@ class ZaskiaApp extends StatelessWidget {
         hintStyle: TextStyle(color: muted),
       ),
     );
+  }
+}
+
+class _EngineLifetime extends WidgetsBindingObserver {
+  @override void didChangeAppLifecycleState(AppLifecycleState state){
+    if(state==AppLifecycleState.detached)unawaited(EngineManager.instance.stopAll());
   }
 }

@@ -73,6 +73,8 @@ class ChatNavigation extends StatelessWidget {
               SizedBox(height: 16),
             for (final entry in {
               'Modelos locales': Icons.memory_outlined,
+              'Guía de inicio': Icons.explore_outlined,
+              'Gestor de motores': Icons.hub_outlined,
               'Descargas': Icons.download_outlined,
               'Configuración de ejecución': Icons.tune,
               'Estudio multimedia': Icons.auto_awesome_outlined,

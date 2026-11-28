@@ -5,6 +5,8 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 
 import 'native_text_engine.dart';
+import 'model_info.dart';
+import 'model_compatibility.dart';
 import '../settings/app_settings.dart';
 import '../hardware/hardware_snapshot.dart';
 import '../diagnostics/diagnostic_log.dart';
@@ -35,6 +37,11 @@ class ModelRuntime {
   Future<void> _loadNative(String path)async {
     if(!HardwareProbe.supportsNativeRuntime())throw StateError('Arquitectura no cubierta por este motor integrado.');
     await prepareConfiguration();
+    if(!_native.matches(path,threads:_threads,contextSize:_preferences.get<int>('context'))){
+      final info=await ModelInfo.inspect(File(path));
+      final compatibility=ModelCompatibility.assess(info,await _hardware!,context:_preferences.get<int>('context'));
+      if(compatibility.blocked)throw StateError(compatibility.reason);
+    }
     await _native.load(path,threads:_threads,contextSize:_preferences.get<int>('context'));
   }
 
