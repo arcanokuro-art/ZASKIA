@@ -1,9 +1,10 @@
 import '../settings/app_settings.dart';
+import 'feature_strings.dart';
 
 class S {
-  static String t(String key) => _values[AppSettings.instance.get<String>('language')]?[key] ?? key;
+  static String t(String key) => featureStrings[AppSettings.instance.get<String>('language')]?[key] ?? _values[AppSettings.instance.get<String>('language')]?[key] ?? key;
   static String f(String key,Map<String,Object> args) {var value=t(key);for(final e in args.entries){value=value.replaceAll('{${e.key}}',e.value.toString());}return value;}
-  static bool has(String lang,String key) => lang=='es' || _values[lang]?.containsKey(key)==true;
+  static bool has(String lang,String key) => lang=='es' || featureStrings[lang]?.containsKey(key)==true || _values[lang]?.containsKey(key)==true;
   static const _values = <String, Map<String,String>>{
   "en": {
     "Configuración": "Settings",

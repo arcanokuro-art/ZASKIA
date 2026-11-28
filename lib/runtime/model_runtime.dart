@@ -135,7 +135,15 @@ class ModelRuntime {
   Stream<Map<String, dynamic>> stream(String endpoint, Map<String, dynamic> body) async* {
     if(isBusy)throw StateError('El motor ya está generando.');
     _streaming=true;
-    try {yield* _stream(endpoint,body);}finally{_streaming=false;}
+    var expired=false;
+    final timer=Timer(Duration(seconds:_preferences.get<int>('requestTimeoutSeconds')),(){expired=true;stop();});
+    try {
+      yield* _stream(endpoint,body);
+      if(expired)throw TimeoutException('Tiempo límite de respuesta alcanzado.');
+    } catch(error) {
+      if(expired)throw TimeoutException('Tiempo límite de respuesta alcanzado.');
+      rethrow;
+    } finally {timer.cancel();_streaming=false;}
   }
   Stream<Map<String, dynamic>> _stream(String endpoint, Map<String, dynamic> body) async* {
     final settings = _preferences;

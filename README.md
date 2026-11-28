@@ -1,3 +1,7 @@
+# ZASKIA 0.15.0
+
+Descargas reanudables, configuración de ejecución, conversaciones con versiones y estudio multimedia modular. [Guía y alcance real de los motores](docs/MULTIMEDIA.md).
+
 # ZASKIA
 
 Aplicación Android de inteligencia artificial local, desarrollada con Flutter por Zaskar Startup.

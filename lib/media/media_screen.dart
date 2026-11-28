@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../localization/strings.dart';
 import '../settings/app_settings.dart';
 import 'engine_http.dart';
@@ -84,6 +85,7 @@ class _MediaScreenState extends State<MediaScreen> with WidgetsBindingObserver {
       job=await _store.create(_kind,_prompt.text);
       final files=<File>[];
       final metadata=await _store.read(job);
+      metadata.addAll({'width':_width,'height':_height,'steps':_steps,'cfg':_cfg,'denoise':_denoise,'negative':_negative.text});
       if(_kind=='voice'){
         final voice=VoiceEngine(_connect(_voice.text));
         if(transcribe){if(_input==null)throw const FormatException('Selecciona un archivo de audio.');
@@ -98,6 +100,7 @@ class _MediaScreenState extends State<MediaScreen> with WidgetsBindingObserver {
         if(_input!=null)input=await engine.upload(File(_input!));
         Map<String,dynamic> workflow;
         if(_workflow!=null){
+          await File('${job.path}/workflow-template.json').writeAsString(jsonEncode(_workflow));
           if(jsonEncode(_workflow).contains('{{input_image}}') && input==null)throw const FormatException('El flujo requiere una imagen de entrada.');
           workflow=Map<String,dynamic>.from(ComfyEngine.substitute(_workflow,{'prompt':_prompt.text,'negative_prompt':_negative.text,'seed':seed,'width':_width,'height':_height,'steps':_steps,'cfg':_cfg,'input_image':input??''}) as Map);
         }else{
@@ -154,9 +157,9 @@ class _MediaScreenState extends State<MediaScreen> with WidgetsBindingObserver {
       if(job['error']!=null)Text(job['error'] as String),
       for(final name in (job['files'] as List? ?? []).cast<String>())Builder(builder:(context){final f=File('${job['directory']}/$name');return Column(children:[
         if(RegExp(r'\.(png|jpg|jpeg|webp)$').hasMatch(name))Image.file(f,height:240,fit:BoxFit.contain,errorBuilder:(_,e,st)=>Text(S.t('No se pudo abrir el archivo.'))),
-        ListTile(title:Text(name),trailing:IconButton(tooltip:S.t('Abrir archivo'),icon:const Icon(Icons.open_in_new),onPressed:()async{final result=await OpenFilex.open(f.path);if(mounted&&result.type!=ResultType.done)setState(()=>_status=result.message);})),
+        ListTile(title:Text(name),trailing:IconButton(tooltip:S.t('Abrir archivo'),icon:const Icon(Icons.open_in_new),onPressed:()async{if(Platform.isLinux){final opened=await launchUrl(f.uri,mode:LaunchMode.externalApplication);if(!opened&&mounted)setState(()=>_status='No se pudo abrir el archivo.');}else{final result=await OpenFilex.open(f.path);if(mounted&&result.type!=ResultType.done)setState(()=>_status=result.message);}})),
       ]);}),
-      Wrap(spacing:8,children:[TextButton(onPressed:()=>_export(job),child:Text(S.t('Exportar archivos'))),TextButton(onPressed:_busy?null:()async{final d=Directory(job['directory'] as String);final data=await _store.read(d);if(mounted)setState((){_prompt.text=data['prompt'] as String;if(data['seed']!=null)_seed.text='${data['seed']}';});final f=File('${d.path}/workflow.json');if(await f.exists()){final workflow=ComfyEngine.parseWorkflow(await f.readAsString());if(mounted)setState(()=>_workflow=workflow);}},child:Text(S.t('Reutilizar')))]),
+      Wrap(spacing:8,children:[TextButton(onPressed:()=>_export(job),child:Text(S.t('Exportar archivos'))),TextButton(onPressed:_busy?null:()async{final d=Directory(job['directory'] as String);final data=await _store.read(d);if(mounted)setState((){_kind=data['kind'] as String;_workflow=null;_input=null;_prompt.text=data['prompt'] as String;_negative.text=data['negative'] as String? ?? '';_width=data['width'] as int? ?? 512;_height=data['height'] as int? ?? 512;_steps=data['steps'] as int? ?? 20;_cfg=(data['cfg'] as num? ?? 7).toDouble();_denoise=(data['denoise'] as num? ?? 0.7).toDouble();if(data['seed']!=null)_seed.text='${data['seed']}';});final f=File('${d.path}/workflow-template.json');if(await f.exists()){final workflow=ComfyEngine.parseWorkflow(await f.readAsString());if(mounted)setState(()=>_workflow=workflow);}},child:Text(S.t('Reutilizar')))]),
     ]))),
   ])))));
 }

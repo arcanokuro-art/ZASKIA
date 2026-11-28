@@ -346,7 +346,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _generate(_Message message) async {
-    if (!_runtime.ready || !mounted) { _notice('Modelo local sin configurar'); return; }
+    if (!_runtime.ready || !mounted) return;
     final clock=Stopwatch()..start();
     _stopped=false;
     setState(() { _generating=true; message.status='Generando…'; message.model=_runtime.selectedName; });
@@ -411,6 +411,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final index=_messages.indexOf(message);final next=_Message(edit?text:message.text,message.attachments,message.mode,note:message.note);
     setState((){_messages.removeRange(index,_messages.length);_messages.add(next);});await _save();await _generate(next);
   }
+  Future<void> _restoreVersion()async{
+    final index=await showDialog<int>(context:context,builder:(ctx)=>SimpleDialog(title:Text(S.t('Versiones de conversación')),children:[
+      for(var i=_branches.length-1;i>=0;i--)SimpleDialogOption(onPressed:()=>Navigator.pop(ctx,i),child:Text('${DateTime.fromMillisecondsSinceEpoch((_branches[i] as Map)['created'] as int).toLocal()} · ${((_branches[i] as Map)['messages'] as List).length} ${S.t('turnos')}')),
+    ]));
+    if(index==null||!mounted||_generating)return;
+    final selected=(_branches[index] as Map)['messages'] as List;
+    _branches.add({'created':DateTime.now().millisecondsSinceEpoch,'messages':_messages.map((m)=>m.toJson()).toList()});
+    setState((){_messages.clear();_messages.addAll(selected.map((m)=>_Message.fromJson(Map<String,dynamic>.from(m as Map))));});await _save();
+  }
   Future<void> _exportConversation()async{
     final folder=await FilePicker.platform.getDirectoryPath();if(folder==null)return;
     try{final name=widget.project?.name??'ZASKIA';final stamp=DateTime.now().millisecondsSinceEpoch;final messages=_messages.map((m)=>m.toJson()).toList();
@@ -470,6 +479,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _openInfo(String title) {
+    if (_generating) { _notice('Detén la generación antes de cambiar el motor.'); return; }
     final page=switch(title){
       'Descargas'=>const DownloadsScreen(),
       'Estudio multimedia'=>const MediaScreen(),
@@ -543,6 +553,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         IconButton(tooltip:S.t('Buscar en conversación'),onPressed:()async{
           final c=TextEditingController(text:_query);final value=await showDialog<String>(context:context,builder:(ctx)=>AlertDialog(title:Text(S.t('Buscar en conversación')),content:TextField(controller:c),actions:[TextButton(onPressed:()=>Navigator.pop(ctx,''),child:Text(S.t('Limpiar'))),TextButton(onPressed:()=>Navigator.pop(ctx,c.text),child:Text(S.t('Buscar')))]));c.dispose();if(value!=null&&mounted)setState(()=>_query=value);
         },icon:const Icon(Icons.search)),
+        IconButton(tooltip:S.t('Versiones de conversación'),onPressed:_generating||_branches.isEmpty?null:_restoreVersion,icon:const Icon(Icons.history)),
         IconButton(tooltip:S.t('Exportar conversación'),onPressed:_generating?null:_exportConversation,icon:const Icon(Icons.file_download_outlined)),
         if (_inProject)
           Builder(builder: (context) => IconButton(
