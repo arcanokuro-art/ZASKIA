@@ -14,12 +14,16 @@ class _Paths extends PathProviderPlatform {
 }
 void main(){
   testWidgets('finishing the first-run gate opens the actual chat without a restart',(tester)async{
-    final root=await Directory.systemTemp.createTemp();final prior=PathProviderPlatform.instance;
+    final root=(await tester.runAsync(()=>Directory.systemTemp.createTemp()))!;final prior=PathProviderPlatform.instance;
     PathProviderPlatform.instance=_Paths(root.path);
     addTearDown(()async{PathProviderPlatform.instance=prior;await root.delete(recursive:true);});
-    await AppSettings.instance.set('onboardingComplete',false);
+    await tester.runAsync(()=>AppSettings.instance.set('onboardingComplete',false));
     await tester.pumpWidget(const MaterialApp(home:StartScreen()));await tester.pumpAndSettle();
-    await tester.tap(find.text('Configurar después'));await tester.pumpAndSettle();
+    await tester.tap(find.text('Configurar después'));await tester.pump();
+    for(var i=0;i<50 && find.text('¿En qué te ayudo?').evaluate().isEmpty;i++){
+      await tester.runAsync(()=>Future<void>.delayed(const Duration(milliseconds:100)));
+      await tester.pump();
+    }
     expect(AppSettings.instance.get<bool>('onboardingComplete'),true);
     expect(find.text('¿En qué te ayudo?'),findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
